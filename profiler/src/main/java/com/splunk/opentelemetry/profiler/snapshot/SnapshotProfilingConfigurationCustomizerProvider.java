@@ -53,7 +53,7 @@ public class SnapshotProfilingConfigurationCustomizerProvider
       initActiveSpansTracking();
       initStackTraceSampler(snapshotProfiling);
       addSnapshotVolumePropagator(model);
-      addTracerProcessors(model);
+      addSpanProcessors(model);
     }
 
     return model;
@@ -83,7 +83,7 @@ public class SnapshotProfilingConfigurationCustomizerProvider
     StackTraceSamplerInitializer.setupStackTraceSampler(snapshotProfilingConfig);
   }
 
-  private void addTracerProcessors(OpenTelemetryConfigurationModel model) {
+  private void addSpanProcessors(OpenTelemetryConfigurationModel model) {
     TracerProviderModel tracerProviderModel = model.getTracerProvider();
     if (tracerProviderModel == null) {
       tracerProviderModel = new TracerProviderModel();
