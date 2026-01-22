@@ -75,6 +75,7 @@ public class SnapshotProfilingConfigurationCustomizerProvider
     } else {
       propagators = String.join(",", propagators, volumePropagatorName);
     }
+
     propagatorModel.withCompositeList(propagators);
   }
 
