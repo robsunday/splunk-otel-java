@@ -2,7 +2,7 @@
 
 ![Stable](https://img.shields.io/badge/status-stable-informational)
 [![OpenTelemetry Instrumentation for Java Version](https://img.shields.io/badge/otel-2.26.1-blueviolet)](https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/tag/v2.26.1)
-[![Splunk GDI specification](https://img.shields.io/badge/GDI-1.8.0-blueviolet)](https://github.com/signalfx/gdi-specification/releases/tag/v1.8.0)
+[![Splunk GDI specification](https://img.shields.io/badge/GDI-1.9.0-blueviolet)](https://github.com/signalfx/gdi-specification/releases/tag/v1.9.0)
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/signalfx/splunk-otel-java?include_prereleases)](https://github.com/signalfx/splunk-otel-java/releases)
 [![Maven Central](https://img.shields.io/maven-central/v/com.splunk/splunk-otel-javaagent)](https://central.sonatype.com/artifact/com.splunk/splunk-otel-javaagent)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/signalfx/splunk-otel-java/ci.yaml?branch=main)](https://github.com/signalfx/splunk-otel-java/actions/workflows/ci.yaml)

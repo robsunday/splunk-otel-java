@@ -8,6 +8,8 @@ and this repository adheres to [Semantic Versioning](https://semver.org/spec/v2.
 
 ## Unreleased
 
+- Comply with [GDI spec version 1.9.0](https://github.com/signalfx/gdi-specification/releases/tag/v1.9.0)
+
 ## v2.26.1 - 2026-03-23
 
 ### General
