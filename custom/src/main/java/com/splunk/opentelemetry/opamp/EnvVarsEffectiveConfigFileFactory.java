@@ -126,16 +126,14 @@ class EnvVarsEffectiveConfigFileFactory {
         config,
         "otel.exporter.otlp.metrics.default.histogram.aggregation",
         "EXPLICIT_BUCKET_HISTOGRAM");
-    addEnvVar(
-        sb, "otel.exporter.otlp.metrics.endpoint", getSignalOtlpEndpoint(config, "metrics"));
+    addEnvVar(sb, "otel.exporter.otlp.metrics.endpoint", getSignalOtlpEndpoint(config, "metrics"));
     addEnvVar(
         sb,
         config,
         "otel.exporter.otlp.metrics.headers",
         "",
         EnvVarsEffectiveConfigFileFactory::sanitizeHeaders);
-    addEnvVar(
-        sb, "otel.exporter.otlp.metrics.protocol", getSignalOtlpProtocol(config, "metrics"));
+    addEnvVar(sb, "otel.exporter.otlp.metrics.protocol", getSignalOtlpProtocol(config, "metrics"));
     addEnvVar(sb, config, "otel.exporter.otlp.metrics.temporality.preference", "CUMULATIVE");
     addEnvVar(sb, config, "otel.exporter.otlp.metrics.timeout", 10000);
     addEnvVar(sb, "otel.exporter.otlp.protocol", getOtlpProtocol(config));
@@ -144,16 +142,14 @@ class EnvVarsEffectiveConfigFileFactory {
     addEnvVar(sb, config, "otel.exporter.otlp.traces.client.certificate", "");
     addEnvVar(sb, config, "otel.exporter.otlp.traces.client.key", "");
     addEnvVar(sb, config, "otel.exporter.otlp.traces.compression", "");
-    addEnvVar(
-        sb, "otel.exporter.otlp.traces.endpoint", getSignalOtlpEndpoint(config, "traces"));
+    addEnvVar(sb, "otel.exporter.otlp.traces.endpoint", getSignalOtlpEndpoint(config, "traces"));
     addEnvVar(
         sb,
         config,
         "otel.exporter.otlp.traces.headers",
         "",
         EnvVarsEffectiveConfigFileFactory::sanitizeHeaders);
-    addEnvVar(
-        sb, "otel.exporter.otlp.traces.protocol", getSignalOtlpProtocol(config, "traces"));
+    addEnvVar(sb, "otel.exporter.otlp.traces.protocol", getSignalOtlpProtocol(config, "traces"));
     addEnvVar(sb, config, "otel.exporter.otlp.traces.timeout", 10000);
     addEnvVar(sb, config, "otel.exporter.prometheus.host", "0.0.0.0");
     addEnvVar(sb, config, "otel.exporter.prometheus.port", 9464);
