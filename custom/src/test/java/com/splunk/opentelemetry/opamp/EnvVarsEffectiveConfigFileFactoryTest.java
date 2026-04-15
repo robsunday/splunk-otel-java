@@ -1,17 +1,20 @@
+/*
+ * Copyright Splunk Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.splunk.opentelemetry.opamp;
-
-import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getConfig;
-import io.opentelemetry.sdk.autoconfigure.spi.internal.DefaultConfigProperties;
-import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
-import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.function.Supplier;
 
 import static com.splunk.opentelemetry.SplunkConfiguration.METRICS_FULL_COMMAND_LINE;
 import static com.splunk.opentelemetry.SplunkConfiguration.PROFILER_ENABLED_PROPERTY;
@@ -19,7 +22,19 @@ import static com.splunk.opentelemetry.SplunkConfiguration.PROFILER_MEMORY_ENABL
 import static com.splunk.opentelemetry.SplunkConfiguration.SPLUNK_ACCESS_TOKEN;
 import static com.splunk.opentelemetry.SplunkConfiguration.SPLUNK_REALM_PROPERTY;
 import static com.splunk.opentelemetry.opamp.EnvVarsEffectiveConfigFileFactory.toEnvVarName;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getConfig;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
+import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
+import io.opentelemetry.sdk.autoconfigure.spi.internal.DefaultConfigProperties;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.Test;
 
 class EnvVarsEffectiveConfigFileFactoryTest {
   private static final String TRACE_RESPONSE_HEADER_ENABLED_PROPERTY =
@@ -117,7 +132,9 @@ class EnvVarsEffectiveConfigFileFactoryTest {
         .isEqualTo("1234ms");
     assertThat(fileContent.getProperty(toEnvVarName(PROFILER_MEMORY_ENABLED_PROPERTY)))
         .isEqualTo("true");
-    assertThat(fileContent.getProperty(toEnvVarName(PROFILER_MEMORY_EVENT_RATE_LIMIT_ENABLED_PROPERTY)))
+    assertThat(
+            fileContent.getProperty(
+                toEnvVarName(PROFILER_MEMORY_EVENT_RATE_LIMIT_ENABLED_PROPERTY)))
         .isEqualTo("false");
     assertThat(fileContent.getProperty(toEnvVarName(PROFILER_MEMORY_EVENT_RATE_PROPERTY)))
         .isEqualTo("321/s");
@@ -155,8 +172,7 @@ class EnvVarsEffectiveConfigFileFactoryTest {
     Properties fileContent = loadProperties(createFileContent(Map.of()));
 
     assertThat(fileContent.getProperty(toEnvVarName(SPLUNK_REALM_PROPERTY))).isEqualTo("none");
-    assertThat(fileContent.getProperty(toEnvVarName(METRICS_FULL_COMMAND_LINE)))
-        .isEqualTo("false");
+    assertThat(fileContent.getProperty(toEnvVarName(METRICS_FULL_COMMAND_LINE))).isEqualTo("false");
     assertThat(fileContent.getProperty(toEnvVarName(TRACE_RESPONSE_HEADER_ENABLED_PROPERTY)))
         .isEqualTo("true");
     assertThat(fileContent.getProperty(toEnvVarName(PROFILER_ENABLED_PROPERTY))).isEqualTo("false");
@@ -172,7 +188,9 @@ class EnvVarsEffectiveConfigFileFactoryTest {
         .isEqualTo("10000ms");
     assertThat(fileContent.getProperty(toEnvVarName(PROFILER_MEMORY_ENABLED_PROPERTY)))
         .isEqualTo("false");
-    assertThat(fileContent.getProperty(toEnvVarName(PROFILER_MEMORY_EVENT_RATE_LIMIT_ENABLED_PROPERTY)))
+    assertThat(
+            fileContent.getProperty(
+                toEnvVarName(PROFILER_MEMORY_EVENT_RATE_LIMIT_ENABLED_PROPERTY)))
         .isEqualTo("true");
     assertThat(fileContent.getProperty(toEnvVarName(PROFILER_MEMORY_EVENT_RATE_PROPERTY)))
         .isEqualTo("150/s");
@@ -233,7 +251,8 @@ class EnvVarsEffectiveConfigFileFactoryTest {
   @Test
   void testCreateFileUsesSignalSpecificProtocolDefaults() throws IOException {
     Properties fileContent =
-        loadProperties(createFileContent(Map.of(OTEL_EXPORTER_OTLP_LOGS_PROTOCOL_PROPERTY, "grpc")));
+        loadProperties(
+            createFileContent(Map.of(OTEL_EXPORTER_OTLP_LOGS_PROTOCOL_PROPERTY, "grpc")));
 
     assertThat(fileContent.getProperty(toEnvVarName(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT_PROPERTY)))
         .isEqualTo("http://localhost:4317");
@@ -244,7 +263,9 @@ class EnvVarsEffectiveConfigFileFactoryTest {
     Properties fileContent =
         loadProperties(
             createFileContent(
-                Map.of("otel.exporter.otlp.endpoint", "https://ingest.us1.observability.splunkcloud.com")));
+                Map.of(
+                    "otel.exporter.otlp.endpoint",
+                    "https://ingest.us1.observability.splunkcloud.com")));
 
     assertThat(fileContent.getProperty(toEnvVarName(PROFILER_LOGS_ENDPOINT_PROPERTY)))
         .isEqualTo("http://localhost:4318/v1/logs");
