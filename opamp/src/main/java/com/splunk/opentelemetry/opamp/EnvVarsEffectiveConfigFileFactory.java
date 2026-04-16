@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.UnaryOperator;
 import okio.ByteString;
 import opamp.proto.AgentConfigFile;
@@ -488,7 +489,7 @@ class EnvVarsEffectiveConfigFileFactory {
 
     FileContentBuilder addInt(String propertyName) {
       Integer value = config.getInt(propertyName);
-      return addValue(propertyName, nullable(value));
+      return addValue(propertyName, Objects.toString(value, ""));
     }
 
     FileContentBuilder add(
@@ -499,10 +500,6 @@ class EnvVarsEffectiveConfigFileFactory {
 
     String build() {
       return stringBuilder.toString();
-    }
-
-    private String nullable(Object value) {
-      return value == null ? "" : value.toString();
     }
   }
 }
