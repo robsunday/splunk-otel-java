@@ -16,23 +16,29 @@
 
 package com.splunk.opentelemetry.opamp;
 
-import static com.splunk.opentelemetry.SplunkConfiguration.METRICS_FULL_COMMAND_LINE;
-import static com.splunk.opentelemetry.SplunkConfiguration.PROFILER_ENABLED_PROPERTY;
-import static com.splunk.opentelemetry.SplunkConfiguration.PROFILER_MEMORY_ENABLED_PROPERTY;
-import static com.splunk.opentelemetry.SplunkConfiguration.SPLUNK_REALM_NONE;
-import static com.splunk.opentelemetry.SplunkConfiguration.SPLUNK_REALM_PROPERTY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.splunk.opentelemetry.SplunkConfiguration;
+import com.splunk.opentelemetry.profiler.ProfilerEnvVarsConfiguration;
+import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingEnvVarsConfiguration;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.UnaryOperator;
 import okio.ByteString;
 import opamp.proto.AgentConfigFile;
 
 class EnvVarsEffectiveConfigFileFactory {
+  private static final String OTEL_EXPORTER_OTLP_ENDPOINT = "otel.exporter.otlp.endpoint";
+  private static final String OTEL_EXPORTER_OTLP_PROTOCOL = "otel.exporter.otlp.protocol";
+  private static final String OTLP_PROTOCOL_HTTP_PROTOBUF = "http/protobuf";
+  private static final String OTLP_SIGNAL_LOGS = "logs";
+  private static final String OTLP_SIGNAL_METRICS = "metrics";
+  private static final String OTLP_SIGNAL_TRACES = "traces";
+
   private final ConfigProperties config;
 
   EnvVarsEffectiveConfigFileFactory(ConfigProperties config) {
@@ -45,38 +51,86 @@ class EnvVarsEffectiveConfigFileFactory {
   }
 
   @VisibleForTesting
-  static ByteString createFileContent(ConfigProperties config) {
-    return new ByteString(
-        new EnvVarsEffectiveConfigFileFactory(config).buildFileContent().getBytes(UTF_8));
-  }
-
-  private String buildFileContent() {
+  String buildFileContent() {
     return addSplunkEnvVars(addOtelEnvVars(new FileContentBuilder())).build();
   }
 
   private FileContentBuilder addSplunkEnvVars(FileContentBuilder builder) {
+    ProfilerEnvVarsConfiguration profilerConfiguration = new ProfilerEnvVarsConfiguration(config);
+    SnapshotProfilingEnvVarsConfiguration snapshotConfiguration =
+        new SnapshotProfilingEnvVarsConfiguration(config);
+
     // Do not report SPLUNK_ACCESS_TOKEN in the effective config file because it is sensitive.
     return builder
-        .add(METRICS_FULL_COMMAND_LINE, false)
+        .add(SplunkConfiguration.METRICS_FULL_COMMAND_LINE, false)
         .add("splunk.otel.instrumentation.nocode.yml.file", "")
-        .add("splunk.profiler.call.stack.interval", "10000ms")
-        .add("splunk.profiler.directory", System.getProperty("java.io.tmpdir"))
-        .add(PROFILER_ENABLED_PROPERTY, SplunkConfiguration.isProfilerEnabled(config))
-        .add("splunk.profiler.include.agent.internals", false)
-        .add("splunk.profiler.include.internal.stacks", false)
-        .add("splunk.profiler.include.jvm.internals", false)
-        .add("splunk.profiler.keep-files", false)
-        .add("splunk.profiler.logs-endpoint", getProfilerLogsEndpoint(config))
-        .add("splunk.profiler.max.stack.depth", 1024)
-        .add(PROFILER_MEMORY_ENABLED_PROPERTY, false)
-        .add("splunk.profiler.memory.event.rate", "150/s")
-        .add("splunk.profiler.memory.event.rate-limit.enabled", true)
-        .add("splunk.profiler.memory.native.sampling", false)
-        .add("splunk.profiler.otlp.protocol", getProfilerOtlpProtocol(config))
-        .add("splunk.profiler.recording.duration", "20s")
-        .add("splunk.profiler.tracing.stacks.only", false)
-        .add(SPLUNK_REALM_PROPERTY, SPLUNK_REALM_NONE)
-        .add("splunk.trace-response-header.enabled", true);
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_CALL_STACK_INTERVAL,
+            profilerConfiguration.getCallStackInterval())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_PROFILER_DIRECTORY,
+            profilerConfiguration.getProfilerDirectory())
+        .addValue(SplunkConfiguration.PROFILER_ENABLED_PROPERTY, profilerConfiguration.isEnabled())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_INCLUDE_AGENT_INTERNALS,
+            profilerConfiguration.getIncludeAgentInternalStacks())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_INCLUDE_INTERNAL_STACKS,
+            config.getBoolean(
+                ProfilerEnvVarsConfiguration.CONFIG_KEY_INCLUDE_INTERNAL_STACKS, false))
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_INCLUDE_JVM_INTERNALS,
+            profilerConfiguration.getIncludeJvmInternalStacks())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_KEEP_FILES,
+            profilerConfiguration.getKeepFiles())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_INGEST_URL,
+            profilerConfiguration.getIngestUrl())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_STACK_DEPTH,
+            profilerConfiguration.getStackDepth())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_MEMORY_ENABLED,
+            profilerConfiguration.getMemoryEnabled())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_MEMORY_EVENT_RATE,
+            profilerConfiguration.getMemoryEventRate())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_MEMORY_EVENT_RATE_LIMIT_ENABLED,
+            profilerConfiguration.getMemoryEventRateLimitEnabled())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_MEMORY_NATIVE_SAMPLING,
+            profilerConfiguration.getUseAllocationSampleEvent())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_PROFILER_OTLP_PROTOCOL,
+            profilerConfiguration.getOtlpProtocol())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_RECORDING_DURATION,
+            profilerConfiguration.getRecordingDuration())
+        .addValue(
+            ProfilerEnvVarsConfiguration.CONFIG_KEY_TRACING_STACKS_ONLY,
+            profilerConfiguration.getTracingStacksOnly())
+        .add(SplunkConfiguration.SPLUNK_REALM_PROPERTY, SplunkConfiguration.SPLUNK_REALM_NONE)
+        .add("splunk.trace-response-header.enabled", true)
+        .addValue(
+            SnapshotProfilingEnvVarsConfiguration.CONFIG_KEY_ENABLE_SNAPSHOT_PROFILER,
+            snapshotConfiguration.isEnabled())
+        .addValue(
+            SnapshotProfilingEnvVarsConfiguration.SELECTION_PROBABILITY_KEY,
+            snapshotConfiguration.getSnapshotSelectionProbability())
+        .addValue(
+            SnapshotProfilingEnvVarsConfiguration.STACK_DEPTH_KEY,
+            snapshotConfiguration.getStackDepth())
+        .addValue(
+            SnapshotProfilingEnvVarsConfiguration.SAMPLING_INTERVAL_KEY,
+            snapshotConfiguration.getSamplingInterval())
+        .addValue(
+            SnapshotProfilingEnvVarsConfiguration.EXPORT_INTERVAL_KEY,
+            snapshotConfiguration.getExportInterval())
+        .addValue(
+            SnapshotProfilingEnvVarsConfiguration.STAGING_CAPACITY_KEY,
+            snapshotConfiguration.getStagingCapacity());
   }
 
   private FileContentBuilder addOtelEnvVars(FileContentBuilder builder) {
@@ -98,18 +152,18 @@ class EnvVarsEffectiveConfigFileFactory {
         .add("otel.exporter.otlp.client.certificate", "")
         .add("otel.exporter.otlp.client.key", "")
         .add("otel.exporter.otlp.compression", "")
-        .add("otel.exporter.otlp.endpoint", getOtlpEndpoint(config))
+        .add(OTEL_EXPORTER_OTLP_ENDPOINT, getOtlpEndpoint(config))
         .add("otel.exporter.otlp.headers", "", EnvVarsEffectiveConfigFileFactory::sanitizeHeaders)
         .add("otel.exporter.otlp.logs.certificate", "")
         .add("otel.exporter.otlp.logs.client.certificate", "")
         .add("otel.exporter.otlp.logs.client.key", "")
         .add("otel.exporter.otlp.logs.compression", "")
-        .add("otel.exporter.otlp.logs.endpoint", getSignalOtlpEndpoint(config, "logs"))
+        .add("otel.exporter.otlp.logs.endpoint", getSignalOtlpEndpoint(config, OTLP_SIGNAL_LOGS))
         .add(
             "otel.exporter.otlp.logs.headers",
             "",
             EnvVarsEffectiveConfigFileFactory::sanitizeHeaders)
-        .add("otel.exporter.otlp.logs.protocol", getSignalOtlpProtocol(config, "logs"))
+        .add("otel.exporter.otlp.logs.protocol", getSignalOtlpProtocol(config, OTLP_SIGNAL_LOGS))
         .add("otel.exporter.otlp.logs.timeout", 10000)
         .add("otel.exporter.otlp.metrics.certificate", "")
         .add("otel.exporter.otlp.metrics.client.certificate", "")
@@ -117,26 +171,32 @@ class EnvVarsEffectiveConfigFileFactory {
         .add("otel.exporter.otlp.metrics.compression", "")
         .add(
             "otel.exporter.otlp.metrics.default.histogram.aggregation", "EXPLICIT_BUCKET_HISTOGRAM")
-        .add("otel.exporter.otlp.metrics.endpoint", getSignalOtlpEndpoint(config, "metrics"))
+        .add(
+            "otel.exporter.otlp.metrics.endpoint",
+            getSignalOtlpEndpoint(config, OTLP_SIGNAL_METRICS))
         .add(
             "otel.exporter.otlp.metrics.headers",
             "",
             EnvVarsEffectiveConfigFileFactory::sanitizeHeaders)
-        .add("otel.exporter.otlp.metrics.protocol", getSignalOtlpProtocol(config, "metrics"))
+        .add(
+            "otel.exporter.otlp.metrics.protocol",
+            getSignalOtlpProtocol(config, OTLP_SIGNAL_METRICS))
         .add("otel.exporter.otlp.metrics.temporality.preference", "CUMULATIVE")
         .add("otel.exporter.otlp.metrics.timeout", 10000)
-        .add("otel.exporter.otlp.protocol", getOtlpProtocol(config))
+        .add(OTEL_EXPORTER_OTLP_PROTOCOL, getOtlpProtocol(config))
         .add("otel.exporter.otlp.timeout", 10000)
         .add("otel.exporter.otlp.traces.certificate", "")
         .add("otel.exporter.otlp.traces.client.certificate", "")
         .add("otel.exporter.otlp.traces.client.key", "")
         .add("otel.exporter.otlp.traces.compression", "")
-        .add("otel.exporter.otlp.traces.endpoint", getSignalOtlpEndpoint(config, "traces"))
+        .add(
+            "otel.exporter.otlp.traces.endpoint", getSignalOtlpEndpoint(config, OTLP_SIGNAL_TRACES))
         .add(
             "otel.exporter.otlp.traces.headers",
             "",
             EnvVarsEffectiveConfigFileFactory::sanitizeHeaders)
-        .add("otel.exporter.otlp.traces.protocol", getSignalOtlpProtocol(config, "traces"))
+        .add(
+            "otel.exporter.otlp.traces.protocol", getSignalOtlpProtocol(config, OTLP_SIGNAL_TRACES))
         .add("otel.exporter.otlp.traces.timeout", 10000)
         .add("otel.exporter.prometheus.host", "0.0.0.0")
         .add("otel.exporter.prometheus.port", 9464)
@@ -306,60 +366,12 @@ class EnvVarsEffectiveConfigFileFactory {
         .add("otel.traces.sampler.arg", "");
   }
 
-  @VisibleForTesting
-  static String toEnvVarName(String name) {
-    return name.toUpperCase().replace('.', '_').replace('-', '_');
-  }
-
-  private static String getProfilerLogsEndpoint(ConfigProperties config) {
-    String ingestUrl = config.getString("splunk.profiler.logs-endpoint");
-    if (ingestUrl != null) {
-      return ingestUrl;
-    }
-
-    String defaultLogsEndpoint = getDefaultProfilerLogsEndpoint(config);
-    ingestUrl = config.getString("otel.exporter.otlp.endpoint", defaultLogsEndpoint);
-
-    if (ingestUrl.startsWith("https://ingest.")
-        && ingestUrl.endsWith(".observability.splunkcloud.com")) {
-      return defaultLogsEndpoint;
-    }
-
-    if ("http/protobuf".equals(getProfilerOtlpProtocol(config))) {
-      return maybeAppendHttpLogsPath(ingestUrl);
-    }
-
-    return ingestUrl;
-  }
-
-  private static String getDefaultProfilerLogsEndpoint(ConfigProperties config) {
-    return "http/protobuf".equals(getProfilerOtlpProtocol(config))
-        ? "http://localhost:4318/v1/logs"
-        : "http://localhost:4317";
-  }
-
-  private static String getProfilerOtlpProtocol(ConfigProperties config) {
-    return config.getString(
-        "splunk.profiler.otlp.protocol",
-        config.getString("otel.exporter.otlp.protocol", "http/protobuf"));
-  }
-
-  private static String maybeAppendHttpLogsPath(String ingestUrl) {
-    if (ingestUrl.endsWith("v1/logs")) {
-      return ingestUrl;
-    }
-    if (!ingestUrl.endsWith("/")) {
-      ingestUrl += "/";
-    }
-    return ingestUrl + "v1/logs";
-  }
-
   private static String getOtlpEndpoint(ConfigProperties config) {
-    String endpoint = config.getString("otel.exporter.otlp.endpoint");
+    String endpoint = config.getString(OTEL_EXPORTER_OTLP_ENDPOINT);
     if (endpoint != null) {
       return endpoint;
     }
-    return "http/protobuf".equals(getOtlpProtocol(config))
+    return OTLP_PROTOCOL_HTTP_PROTOBUF.equals(getOtlpProtocol(config))
         ? "http://localhost:4318"
         : "http://localhost:4317";
   }
@@ -371,16 +383,29 @@ class EnvVarsEffectiveConfigFileFactory {
       return endpoint;
     }
 
-    String baseEndpoint = config.getString("otel.exporter.otlp.endpoint");
+    String baseEndpoint = config.getString(OTEL_EXPORTER_OTLP_ENDPOINT);
     if (baseEndpoint == null) {
-      return "http/protobuf".equals(getSignalOtlpProtocol(config, signal))
+      return OTLP_PROTOCOL_HTTP_PROTOBUF.equals(getSignalOtlpProtocol(config, signal))
           ? "http://localhost:4318/v1/" + signal
           : "http://localhost:4317";
     }
-    if ("http/protobuf".equals(getSignalOtlpProtocol(config, signal))) {
+    if (OTLP_PROTOCOL_HTTP_PROTOBUF.equals(getSignalOtlpProtocol(config, signal))) {
       return appendSignalPath(baseEndpoint, signal);
     }
     return baseEndpoint;
+  }
+
+  private static String getSignalOtlpProtocol(ConfigProperties config, String signal) {
+    if (OTLP_SIGNAL_LOGS.equals(signal)) {
+      String protocol = SplunkConfiguration.getOtlpLogsProtocol(config);
+      return protocol == null ? getOtlpProtocol(config) : protocol;
+    }
+    String propertyName = "otel.exporter.otlp." + signal + ".protocol";
+    return config.getString(propertyName, getOtlpProtocol(config));
+  }
+
+  private static String getOtlpProtocol(ConfigProperties config) {
+    return config.getString(OTEL_EXPORTER_OTLP_PROTOCOL, OTLP_PROTOCOL_HTTP_PROTOBUF);
   }
 
   private static String appendSignalPath(String endpoint, String signal) {
@@ -394,17 +419,9 @@ class EnvVarsEffectiveConfigFileFactory {
     return endpoint + signalPath;
   }
 
-  private static String getSignalOtlpProtocol(ConfigProperties config, String signal) {
-    if ("logs".equals(signal)) {
-      String protocol = SplunkConfiguration.getOtlpLogsProtocol(config);
-      return protocol == null ? getOtlpProtocol(config) : protocol;
-    }
-    String propertyName = "otel.exporter.otlp." + signal + ".protocol";
-    return config.getString(propertyName, getOtlpProtocol(config));
-  }
-
-  private static String getOtlpProtocol(ConfigProperties config) {
-    return config.getString("otel.exporter.otlp.protocol", "http/protobuf");
+  @VisibleForTesting
+  static String toEnvVarName(String name) {
+    return name.toUpperCase(Locale.ROOT).replace('.', '_').replace('-', '_');
   }
 
   private static String sanitizeHeaders(String headers) {
@@ -432,31 +449,43 @@ class EnvVarsEffectiveConfigFileFactory {
   private class FileContentBuilder {
     private final StringBuilder stringBuilder = new StringBuilder();
 
-    FileContentBuilder addRaw(String propertyName, Object value) {
+    FileContentBuilder addValue(String propertyName, Object value) {
       stringBuilder.append(toEnvVarName(propertyName)).append('=').append(value).append('\n');
       return this;
     }
 
+    FileContentBuilder addValue(String propertyName, int value) {
+      return addValue(propertyName, Integer.valueOf(value));
+    }
+
+    FileContentBuilder addValue(String propertyName, double value) {
+      return addValue(propertyName, Double.valueOf(value));
+    }
+
+    FileContentBuilder addValue(String propertyName, Duration value) {
+      return addValue(propertyName, value.toMillis() + "ms");
+    }
+
     FileContentBuilder add(String propertyName, String defaultValue) {
-      return addRaw(propertyName, config.getString(propertyName, defaultValue));
+      return addValue(propertyName, config.getString(propertyName, defaultValue));
     }
 
     FileContentBuilder add(String propertyName, boolean defaultValue) {
-      return addRaw(propertyName, config.getBoolean(propertyName, defaultValue));
+      return addValue(propertyName, config.getBoolean(propertyName, defaultValue));
     }
 
     FileContentBuilder add(String propertyName, int defaultValue) {
-      return addRaw(propertyName, config.getInt(propertyName, defaultValue));
+      return addValue(propertyName, config.getInt(propertyName, defaultValue));
     }
 
     FileContentBuilder addInt(String propertyName) {
       Integer value = config.getInt(propertyName);
-      return addRaw(propertyName, nullable(value));
+      return addValue(propertyName, nullable(value));
     }
 
     FileContentBuilder add(
         String propertyName, String defaultValue, UnaryOperator<String> valueTransformer) {
-      return addRaw(
+      return addValue(
           propertyName, valueTransformer.apply(config.getString(propertyName, defaultValue)));
     }
 

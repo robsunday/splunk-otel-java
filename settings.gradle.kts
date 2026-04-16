@@ -33,6 +33,7 @@ include(
     "agent-csa-bundle",
     "bootstrap",
     "custom",
+    "opamp",
     "instrumentation",
     "instrumentation:compile-stub",
     "instrumentation:glassfish",
