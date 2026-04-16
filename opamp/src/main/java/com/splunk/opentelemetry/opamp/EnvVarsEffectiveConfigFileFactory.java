@@ -32,6 +32,7 @@ import okio.ByteString;
 import opamp.proto.AgentConfigFile;
 
 class EnvVarsEffectiveConfigFileFactory {
+  static final String REDACTION_MARKER = "**Redacted**";
   private static final String OTEL_EXPORTER_OTLP_ENDPOINT = "otel.exporter.otlp.endpoint";
   private static final String OTEL_EXPORTER_OTLP_PROTOCOL = "otel.exporter.otlp.protocol";
   private static final String OTLP_PROTOCOL_HTTP_PROTOBUF = "http/protobuf";
@@ -60,7 +61,11 @@ class EnvVarsEffectiveConfigFileFactory {
     SnapshotProfilingEnvVarsConfiguration snapshotConfiguration =
         new SnapshotProfilingEnvVarsConfiguration(config);
 
-    // Do not report SPLUNK_ACCESS_TOKEN in the effective config file because it is sensitive.
+    // Mask SPLUNK_ACCESS_TOKEN in the effective config file because it is a sensitive data.
+    if (config.getString(SplunkConfiguration.SPLUNK_ACCESS_TOKEN) != null) {
+      builder.addValue(SplunkConfiguration.SPLUNK_ACCESS_TOKEN, REDACTION_MARKER);
+    }
+
     return builder
         .add(SplunkConfiguration.METRICS_FULL_COMMAND_LINE, false)
         .add("splunk.otel.instrumentation.nocode.yml.file", "")
@@ -424,7 +429,8 @@ class EnvVarsEffectiveConfigFileFactory {
     return name.toUpperCase(Locale.ROOT).replace('.', '_').replace('-', '_');
   }
 
-  private static String sanitizeHeaders(String headers) {
+  @VisibleForTesting
+  static String sanitizeHeaders(String headers) {
     if (headers.isEmpty()) {
       return headers;
     }
@@ -438,8 +444,10 @@ class EnvVarsEffectiveConfigFileFactory {
 
       int separator = trimmedHeader.indexOf('=');
       String headerName = separator == -1 ? trimmedHeader : trimmedHeader.substring(0, separator);
-      // Do not report X-SF-TOKEN values because they are sensitive data
-      if (!"X-SF-TOKEN".equalsIgnoreCase(headerName.trim())) {
+      // Mask X-SF-TOKEN values because they are sensitive data
+      if ("X-SF-TOKEN".equalsIgnoreCase(headerName.trim())) {
+        sanitized.add(headerName + "=" + REDACTION_MARKER);
+      } else {
         sanitized.add(trimmedHeader);
       }
     }
