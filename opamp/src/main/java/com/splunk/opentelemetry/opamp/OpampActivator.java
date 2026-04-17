@@ -16,16 +16,13 @@
 
 package com.splunk.opentelemetry.opamp;
 
-import static com.splunk.opentelemetry.SplunkConfiguration.PROFILER_ENABLED_PROPERTY;
 import static io.opentelemetry.opamp.client.internal.request.service.HttpRequestService.DEFAULT_DELAY_BETWEEN_REQUESTS;
 import static io.opentelemetry.opamp.client.internal.request.service.HttpRequestService.DEFAULT_DELAY_BETWEEN_RETRIES;
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getConfig;
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getResource;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.WARNING;
 
 import com.google.auto.service.AutoService;
-import com.splunk.opentelemetry.SplunkConfiguration;
 import io.opentelemetry.javaagent.extension.AgentListener;
 import io.opentelemetry.opamp.client.OpampClient;
 import io.opentelemetry.opamp.client.OpampClientBuilder;
@@ -43,11 +40,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-import okio.ByteString;
 import opamp.proto.AgentConfigFile;
 import opamp.proto.AgentConfigMap;
 import opamp.proto.ServerErrorResponse;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 @AutoService(AgentListener.class)
@@ -198,23 +193,13 @@ public class OpampActivator implements AgentListener {
     return new State.EffectiveConfig() {
       @Override
       public opamp.proto.EffectiveConfig get() {
+        AgentConfigFile file = new EnvVarsEffectiveConfigFileFactory(config).createFile();
+
         Map<String, AgentConfigFile> configItems = new HashMap<>();
-        ByteString body = buildConfigBodyFromConfigProps(config);
-        AgentConfigFile file = new AgentConfigFile(body, "text/plain+properties?");
         configItems.put("config", file);
         AgentConfigMap configMap = new AgentConfigMap(configItems);
         return new opamp.proto.EffectiveConfig(configMap);
       }
     };
-  }
-
-  @NotNull
-  private static ByteString buildConfigBodyFromConfigProps(ConfigProperties config) {
-    StringBuilder sb = new StringBuilder();
-    sb.append(PROFILER_ENABLED_PROPERTY.toUpperCase().replace('.', '_'))
-        .append("=")
-        .append(SplunkConfiguration.isProfilerEnabled(config));
-    // TODO: Additional configs that are useful can be included here...
-    return new ByteString(sb.toString().getBytes(UTF_8));
   }
 }

@@ -28,7 +28,6 @@ import static io.opentelemetry.semconv.incubating.OsIncubatingAttributes.OS_NAME
 import static io.opentelemetry.semconv.incubating.OsIncubatingAttributes.OS_TYPE;
 import static io.opentelemetry.semconv.incubating.OsIncubatingAttributes.OS_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -37,6 +36,7 @@ import io.opentelemetry.instrumentation.testing.internal.AutoCleanupExtension;
 import io.opentelemetry.opamp.client.OpampClient;
 import io.opentelemetry.opamp.client.internal.response.MessageData;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
+import io.opentelemetry.sdk.autoconfigure.spi.internal.DefaultConfigProperties;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.testing.internal.armeria.common.HttpResponse;
 import io.opentelemetry.testing.internal.armeria.common.HttpStatus;
@@ -45,6 +45,7 @@ import io.opentelemetry.testing.internal.armeria.testing.junit5.server.mock.Mock
 import io.opentelemetry.testing.internal.armeria.testing.junit5.server.mock.RecordedRequest;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -130,7 +131,9 @@ class OpampActivatorTest {
                     .build())
             .build();
     server.enqueue(HttpResponse.of(HttpStatus.OK, MediaType.X_PROTOBUF, response.encode()));
-    ConfigProperties config = mock();
+
+    Map<String, String> cm = new HashMap<>();
+    ConfigProperties config = DefaultConfigProperties.createFromMap(cm);
 
     CompletableFuture<MessageData> result = new CompletableFuture<>();
     OpampClient client =
