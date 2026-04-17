@@ -22,7 +22,7 @@ import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME;
 import static io.opentelemetry.semconv.incubating.DeploymentIncubatingAttributes.DEPLOYMENT_ENVIRONMENT_NAME;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mockStatic;
 
 import com.splunk.opentelemetry.testing.declarativeconfig.DeclarativeConfigTestUtil;
 import io.opentelemetry.api.common.Attributes;
@@ -40,6 +40,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 
 class AppdBeforeAgentListenerTest {
   @RegisterExtension final AutoCleanupExtension autoCleanup = AutoCleanupExtension.create();
@@ -97,26 +98,30 @@ class AppdBeforeAgentListenerTest {
         Resource.create(
             Attributes.of(
                 DEPLOYMENT_ENVIRONMENT_NAME, "test-deployment-env", SERVICE_NAME, "test-service"));
-    when(AutoConfigureUtil.getConfig(sdkMock)).thenReturn(mockConfigProperties);
-    when(AutoConfigureUtil.getResource(sdkMock)).thenReturn(resource);
+    try (MockedStatic<AutoConfigureUtil> autoConfigureUtil = mockStatic(AutoConfigureUtil.class)) {
+      autoConfigureUtil
+          .when(() -> AutoConfigureUtil.getConfig(sdkMock))
+          .thenReturn(mockConfigProperties);
+      autoConfigureUtil.when(() -> AutoConfigureUtil.getResource(sdkMock)).thenReturn(resource);
 
-    // when
-    agentListener.beforeAgent(sdkMock);
+      // when
+      agentListener.beforeAgent(sdkMock);
 
-    // then
-    AppdBonusPropagator propagator = AppdBonusPropagator.getInstance();
-    Map<String, String> carrier = new HashMap<>();
-    Context context = Context.current();
-    propagator.inject(
-        context,
-        carrier,
-        (map, key, value) -> {
-          if (map != null) {
-            map.put(key, value);
-          }
-        });
+      // then
+      AppdBonusPropagator propagator = AppdBonusPropagator.getInstance();
+      Map<String, String> carrier = new HashMap<>();
+      Context context = Context.current();
+      propagator.inject(
+          context,
+          carrier,
+          (map, key, value) -> {
+            if (map != null) {
+              map.put(key, value);
+            }
+          });
 
-    assertThat(carrier.get(CTX_HEADER_SERVICE)).isEqualTo("test-service");
-    assertThat(carrier.get(CTX_HEADER_ENV)).isEqualTo("test-deployment-env");
+      assertThat(carrier.get(CTX_HEADER_SERVICE)).isEqualTo("test-service");
+      assertThat(carrier.get(CTX_HEADER_ENV)).isEqualTo("test-deployment-env");
+    }
   }
 }

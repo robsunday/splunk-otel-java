@@ -48,14 +48,17 @@ public class ServiceNameChecker implements BeforeAgentListener {
 
   @Override
   public void beforeAgent(AutoConfiguredOpenTelemetrySdk autoConfiguredOpenTelemetrySdk) {
-    ConfigProperties config = getConfig(autoConfiguredOpenTelemetrySdk);
     Resource resource = getResource(autoConfiguredOpenTelemetrySdk);
-    if (serviceNameNotConfigured(config, resource)) {
-      if (AutoConfigureUtil.isDeclarativeConfig(autoConfiguredOpenTelemetrySdk)) {
+
+    if (AutoConfigureUtil.isDeclarativeConfig(autoConfiguredOpenTelemetrySdk)) {
+      if (serviceNameNotConfigured(resource)) {
         logWarn.accept(
             "The service.name resource attribute is not set. Your service is unnamed and will be difficult to identify.\n"
                 + " Set your service name in '.resource.attributes' node, or specify appropriate resource detector in the configuration YAML file.");
-      } else {
+      }
+    } else {
+      ConfigProperties config = getConfig(autoConfiguredOpenTelemetrySdk);
+      if (serviceNameNotConfigured(config, resource)) {
         logWarn.accept(
             "The service.name resource attribute is not set. Your service is unnamed and will be difficult to identify.\n"
                 + " Set your service name using the OTEL_SERVICE_NAME or OTEL_RESOURCE_ATTRIBUTES environment variable.\n"
@@ -70,11 +73,15 @@ public class ServiceNameChecker implements BeforeAgentListener {
     return -100;
   }
 
-  static boolean serviceNameNotConfigured(ConfigProperties config, Resource resource) {
+  private static boolean serviceNameNotConfigured(ConfigProperties config, Resource resource) {
     String serviceName = config.getString("otel.service.name");
     Map<String, String> resourceAttributes = config.getMap("otel.resource.attributes");
     return serviceName == null
         && !resourceAttributes.containsKey(ServiceAttributes.SERVICE_NAME.getKey())
-        && "unknown_service:java".equals(resource.getAttribute(ServiceAttributes.SERVICE_NAME));
+        && serviceNameNotConfigured(resource);
+  }
+
+  private static boolean serviceNameNotConfigured(Resource resource) {
+    return "unknown_service:java".equals(resource.getAttribute(ServiceAttributes.SERVICE_NAME));
   }
 }

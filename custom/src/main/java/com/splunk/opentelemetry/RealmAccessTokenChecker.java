@@ -20,6 +20,7 @@ import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getConfig;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.javaagent.tooling.BeforeAgentListener;
+import io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import java.util.function.Consumer;
@@ -43,6 +44,10 @@ public class RealmAccessTokenChecker implements BeforeAgentListener {
 
   @Override
   public void beforeAgent(AutoConfiguredOpenTelemetrySdk autoConfiguredOpenTelemetrySdk) {
+    if (AutoConfigureUtil.isDeclarativeConfig(autoConfiguredOpenTelemetrySdk)) {
+      return;
+    }
+
     ConfigProperties config = getConfig(autoConfiguredOpenTelemetrySdk);
 
     if (isRealmConfigured(config) && !isAccessTokenConfigured(config)) {
