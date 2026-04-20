@@ -20,6 +20,7 @@ import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getConfig;
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getResource;
 
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
 import io.opentelemetry.javaagent.tooling.BeforeAgentListener;
 import io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
@@ -51,14 +52,14 @@ public class ServiceNameChecker implements BeforeAgentListener {
     Resource resource = getResource(autoConfiguredOpenTelemetrySdk);
 
     if (AutoConfigureUtil.isDeclarativeConfig(autoConfiguredOpenTelemetrySdk)) {
-      if (serviceNameNotConfigured(resource)) {
+      if (!isServiceNameConfigured(resource)) {
         logWarn.accept(
             "The service.name resource attribute is not set. Your service is unnamed and will be difficult to identify.\n"
                 + " Set your service name in '.resource.attributes' node, or specify appropriate resource detector in the configuration YAML file.");
       }
     } else {
       ConfigProperties config = getConfig(autoConfiguredOpenTelemetrySdk);
-      if (serviceNameNotConfigured(config, resource)) {
+      if (!isServiceNameConfigured(config, resource)) {
         logWarn.accept(
             "The service.name resource attribute is not set. Your service is unnamed and will be difficult to identify.\n"
                 + " Set your service name using the OTEL_SERVICE_NAME or OTEL_RESOURCE_ATTRIBUTES environment variable.\n"
@@ -73,15 +74,25 @@ public class ServiceNameChecker implements BeforeAgentListener {
     return -100;
   }
 
-  private static boolean serviceNameNotConfigured(ConfigProperties config, Resource resource) {
-    String serviceName = config.getString("otel.service.name");
-    Map<String, String> resourceAttributes = config.getMap("otel.resource.attributes");
-    return serviceName == null
-        && !resourceAttributes.containsKey(ServiceAttributes.SERVICE_NAME.getKey())
-        && serviceNameNotConfigured(resource);
+  @VisibleForTesting
+  static boolean isServiceNameConfigured(ConfigProperties config, Resource resource) {
+    String otelServiceName = config.getString("otel.service.name");
+    Map<String, String> otelResourceAttributes = config.getMap("otel.resource.attributes");
+    return !isBlank(otelServiceName)
+        || !isBlank(otelResourceAttributes.get(ServiceAttributes.SERVICE_NAME.getKey()))
+        || isServiceNameConfigured(resource);
   }
 
-  private static boolean serviceNameNotConfigured(Resource resource) {
-    return "unknown_service:java".equals(resource.getAttribute(ServiceAttributes.SERVICE_NAME));
+  @VisibleForTesting
+  static boolean isServiceNameConfigured(Resource resource) {
+    return isServiceNameDefined(resource.getAttribute(ServiceAttributes.SERVICE_NAME));
+  }
+
+  private static boolean isBlank(String s) {
+    return s == null || s.trim().isEmpty();
+  }
+
+  private static boolean isServiceNameDefined(String serviceName) {
+    return !isBlank(serviceName) && !serviceName.equals("unknown_service:java");
   }
 }
