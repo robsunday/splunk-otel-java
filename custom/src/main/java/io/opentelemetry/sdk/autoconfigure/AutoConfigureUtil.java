@@ -23,6 +23,7 @@ import io.opentelemetry.api.incubator.ExtendedOpenTelemetry;
 import io.opentelemetry.api.incubator.config.ConfigProvider;
 import io.opentelemetry.api.incubator.config.DeclarativeConfigProperties;
 import io.opentelemetry.common.ComponentLoader;
+import io.opentelemetry.instrumentation.config.bridge.DeclarativeConfigPropertiesBridgeBuilder;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.YamlDeclarativeConfigProperties;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.DistributionModel;
@@ -59,7 +60,12 @@ public final class AutoConfigureUtil {
 
   /** Returns the {@link ConfigProperties} used for auto-configuration. */
   public static ConfigProperties getConfig(AutoConfiguredOpenTelemetrySdk sdk) {
-    return sdk.getConfig();
+    ConfigProperties config = sdk.getConfig();
+    if (config == null) {
+      config = new DeclarativeConfigPropertiesBridgeBuilder().build(sdk);
+    }
+
+    return config;
   }
 
   public static boolean isDeclarativeConfig(AutoConfiguredOpenTelemetrySdk sdk) {

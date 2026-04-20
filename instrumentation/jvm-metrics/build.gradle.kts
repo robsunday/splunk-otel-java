@@ -5,6 +5,9 @@ plugins {
 dependencies {
   compileOnly(project(":custom"))
   compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-tooling")
+
+  testImplementation(project(":custom"))
+  testImplementation("io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api")
 }
 
 tasks.withType<Test>().configureEach {

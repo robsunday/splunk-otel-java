@@ -24,6 +24,7 @@ import io.opentelemetry.api.incubator.config.ConfigProvider;
 import io.opentelemetry.api.incubator.config.DeclarativeConfigProperties;
 import io.opentelemetry.instrumentation.config.bridge.DeclarativeConfigPropertiesBridgeBuilder;
 import io.opentelemetry.instrumentation.testing.internal.AutoCleanupExtension;
+import io.opentelemetry.javaagent.extension.instrumentation.internal.AgentDistributionConfig;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.SdkAutoconfigureAccess;
@@ -65,6 +66,7 @@ public class DeclarativeConfigTestUtil {
     Path configFilePath = tempDir.resolve("test-config.yaml");
     Files.write(configFilePath, yaml.getBytes());
     System.setProperty("otel.config.file", configFilePath.toString());
+    AgentDistributionConfig.resetForTest();
 
     try {
       AutoConfiguredOpenTelemetrySdk autoConfiguredSdk =
@@ -78,6 +80,7 @@ public class DeclarativeConfigTestUtil {
       OpenTelemetrySdk sdk = autoConfiguredSdk.getOpenTelemetrySdk();
 
       autoCleanup.deferCleanup(sdk);
+      autoCleanup.deferCleanup(AgentDistributionConfig::resetForTest);
 
       if (configProvider != null) {
         return SdkAutoconfigureAccess.create(
