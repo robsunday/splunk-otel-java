@@ -98,30 +98,31 @@ class AppdBeforeAgentListenerTest {
         Resource.create(
             Attributes.of(
                 DEPLOYMENT_ENVIRONMENT_NAME, "test-deployment-env", SERVICE_NAME, "test-service"));
-    try (MockedStatic<AutoConfigureUtil> autoConfigureUtil = mockStatic(AutoConfigureUtil.class)) {
-      autoConfigureUtil
-          .when(() -> AutoConfigureUtil.getConfig(sdkMock))
-          .thenReturn(mockConfigProperties);
-      autoConfigureUtil.when(() -> AutoConfigureUtil.getResource(sdkMock)).thenReturn(resource);
+    MockedStatic<AutoConfigureUtil> autoConfigureUtil = mockStatic(AutoConfigureUtil.class);
+    autoCleanup.deferCleanup(autoConfigureUtil);
 
-      // when
-      agentListener.beforeAgent(sdkMock);
+    autoConfigureUtil
+        .when(() -> AutoConfigureUtil.getConfig(sdkMock))
+        .thenReturn(mockConfigProperties);
+    autoConfigureUtil.when(() -> AutoConfigureUtil.getResource(sdkMock)).thenReturn(resource);
 
-      // then
-      AppdBonusPropagator propagator = AppdBonusPropagator.getInstance();
-      Map<String, String> carrier = new HashMap<>();
-      Context context = Context.current();
-      propagator.inject(
-          context,
-          carrier,
-          (map, key, value) -> {
-            if (map != null) {
-              map.put(key, value);
-            }
-          });
+    // when
+    agentListener.beforeAgent(sdkMock);
 
-      assertThat(carrier.get(CTX_HEADER_SERVICE)).isEqualTo("test-service");
-      assertThat(carrier.get(CTX_HEADER_ENV)).isEqualTo("test-deployment-env");
-    }
+    // then
+    AppdBonusPropagator propagator = AppdBonusPropagator.getInstance();
+    Map<String, String> carrier = new HashMap<>();
+    Context context = Context.current();
+    propagator.inject(
+        context,
+        carrier,
+        (map, key, value) -> {
+          if (map != null) {
+            map.put(key, value);
+          }
+        });
+
+    assertThat(carrier.get(CTX_HEADER_SERVICE)).isEqualTo("test-service");
+    assertThat(carrier.get(CTX_HEADER_ENV)).isEqualTo("test-deployment-env");
   }
 }
