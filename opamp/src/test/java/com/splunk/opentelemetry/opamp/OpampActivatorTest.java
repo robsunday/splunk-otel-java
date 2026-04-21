@@ -16,6 +16,7 @@
 
 package com.splunk.opentelemetry.opamp;
 
+import static com.splunk.opentelemetry.opamp.OpampActivator.buildEffectiveConfig;
 import static io.opentelemetry.api.common.AttributeKey.booleanKey;
 import static io.opentelemetry.api.common.AttributeKey.doubleKey;
 import static io.opentelemetry.api.common.AttributeKey.longKey;
@@ -35,6 +36,7 @@ import io.opentelemetry.api.common.Value;
 import io.opentelemetry.instrumentation.testing.internal.AutoCleanupExtension;
 import io.opentelemetry.opamp.client.OpampClient;
 import io.opentelemetry.opamp.client.internal.response.MessageData;
+import io.opentelemetry.opamp.client.internal.state.State;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import io.opentelemetry.sdk.autoconfigure.spi.internal.DefaultConfigProperties;
 import io.opentelemetry.sdk.resources.Resource;
@@ -45,7 +47,6 @@ import io.opentelemetry.testing.internal.armeria.testing.junit5.server.mock.Mock
 import io.opentelemetry.testing.internal.armeria.testing.junit5.server.mock.RecordedRequest;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -132,13 +133,14 @@ class OpampActivatorTest {
             .build();
     server.enqueue(HttpResponse.of(HttpStatus.OK, MediaType.X_PROTOBUF, response.encode()));
 
-    Map<String, String> cm = new HashMap<>();
-    ConfigProperties config = DefaultConfigProperties.createFromMap(cm);
+    ConfigProperties config = DefaultConfigProperties.createFromMap(Map.of());
+    State.EffectiveConfig effectiveConfig =
+        buildEffectiveConfig(new EnvVarsEffectiveConfigFileFactory(config));
 
     CompletableFuture<MessageData> result = new CompletableFuture<>();
     OpampClient client =
         OpampActivator.startOpampClient(
-            config,
+            effectiveConfig,
             server.httpUri().toString(),
             resource,
             500,

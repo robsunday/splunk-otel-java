@@ -32,7 +32,7 @@ import java.util.function.UnaryOperator;
 import okio.ByteString;
 import opamp.proto.AgentConfigFile;
 
-class EnvVarsEffectiveConfigFileFactory {
+class EnvVarsEffectiveConfigFileFactory implements EffectiveConfigFactory {
   static final String REDACTION_MARKER = "**Redacted**";
   private static final String OTEL_EXPORTER_OTLP_ENDPOINT = "otel.exporter.otlp.endpoint";
   private static final String OTEL_EXPORTER_OTLP_PROTOCOL = "otel.exporter.otlp.protocol";
@@ -47,7 +47,8 @@ class EnvVarsEffectiveConfigFileFactory {
     this.config = config;
   }
 
-  AgentConfigFile createFile() {
+  @Override
+  public AgentConfigFile createFile() {
     ByteString content = new ByteString(buildFileContent().getBytes(UTF_8));
     return new AgentConfigFile(content, "text/plain+properties");
   }

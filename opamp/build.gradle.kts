@@ -2,12 +2,14 @@ dependencies {
   compileOnly(project(":custom"))
   compileOnly(project(":profiler"))
   compileOnly("io.opentelemetry:opentelemetry-sdk")
+  compileOnly("io.opentelemetry:opentelemetry-sdk-extension-incubator")
   compileOnly("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
   compileOnly("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi")
   compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api")
 
   annotationProcessor("com.google.auto.service:auto-service")
   compileOnly("com.google.auto.service:auto-service")
+  compileOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
 
   implementation("io.opentelemetry.contrib:opentelemetry-opamp-client")
 
