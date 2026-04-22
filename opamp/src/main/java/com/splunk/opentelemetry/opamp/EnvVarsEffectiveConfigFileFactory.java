@@ -19,12 +19,9 @@ package com.splunk.opentelemetry.opamp;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.splunk.opentelemetry.SplunkConfiguration;
 import com.splunk.opentelemetry.profiler.ProfilerEnvVarsConfiguration;
 import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingEnvVarsConfiguration;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
-import java.time.Duration;
-import java.util.Locale;
 import okio.ByteString;
 import opamp.proto.AgentConfigFile;
 
@@ -50,36 +47,30 @@ class EnvVarsEffectiveConfigFileFactory implements EffectiveConfigFactory {
 
   @VisibleForTesting
   String buildFileContent() {
-    return addSplunkEnvVars(addOtelEnvVars(new FileContentBuilder())).build();
+    return addSplunkEnvVars(addOtelEnvVars(new EffectiveConfigBuilder())).build();
   }
 
-  private FileContentBuilder addSplunkEnvVars(FileContentBuilder builder) {
+  private EffectiveConfigBuilder addSplunkEnvVars(EffectiveConfigBuilder builder) {
     ProfilerEnvVarsConfiguration profilerConfiguration = new ProfilerEnvVarsConfiguration(config);
     SnapshotProfilingEnvVarsConfiguration snapshotConfiguration =
         new SnapshotProfilingEnvVarsConfiguration(config);
 
     return builder
-        .addValue(SplunkConfiguration.PROFILER_ENABLED_PROPERTY, profilerConfiguration.isEnabled())
-        .addValue(
-            ProfilerEnvVarsConfiguration.CONFIG_KEY_MEMORY_ENABLED,
-            profilerConfiguration.getMemoryEnabled())
-        .addValue(
-            SnapshotProfilingEnvVarsConfiguration.CONFIG_KEY_ENABLE_SNAPSHOT_PROFILER,
-            snapshotConfiguration.isEnabled())
-        .addValue(
-            SnapshotProfilingEnvVarsConfiguration.SAMPLING_INTERVAL_KEY,
+        .add("SPLUNK_PROFILER_ENABLED", profilerConfiguration.isEnabled())
+        .add("SPLUNK_PROFILER_MEMORY_ENABLED", profilerConfiguration.getMemoryEnabled())
+        .add("SPLUNK_SNAPSHOT_PROFILER_ENABLED", snapshotConfiguration.isEnabled())
+        .add(
+            "SPLUNK_SNAPSHOT_PROFILER_SAMPLING_INTERVAL",
             snapshotConfiguration.getSamplingInterval())
-        .addValue(
-            ProfilerEnvVarsConfiguration.CONFIG_KEY_CALL_STACK_INTERVAL,
-            profilerConfiguration.getCallStackInterval());
+        .add("SPLUNK_PROFILER_CALL_STACK_INTERVAL", profilerConfiguration.getCallStackInterval());
   }
 
-  private FileContentBuilder addOtelEnvVars(FileContentBuilder builder) {
+  private EffectiveConfigBuilder addOtelEnvVars(EffectiveConfigBuilder builder) {
     return builder
-        .add("otel.exporter.otlp.traces.endpoint", getSignalEndpoint(config, OTLP_SIGNAL_TRACES))
-        .add("otel.exporter.otlp.metrics.endpoint", getSignalEndpoint(config, OTLP_SIGNAL_METRICS))
-        .add("otel.exporter.otlp.logs.endpoint", getSignalEndpoint(config, OTLP_SIGNAL_LOGS))
-        .add("otel.service.name", "");
+        .add("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", getSignalEndpoint(config, OTLP_SIGNAL_TRACES))
+        .add("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", getSignalEndpoint(config, OTLP_SIGNAL_METRICS))
+        .add("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", getSignalEndpoint(config, OTLP_SIGNAL_LOGS))
+        .add("OTEL_SERVICE_NAME", config.getString("otel.service.name", ""));
   }
 
   private static String getSignalEndpoint(ConfigProperties config, String signal) {
@@ -118,31 +109,5 @@ class EnvVarsEffectiveConfigFileFactory implements EffectiveConfigFactory {
       endpoint += "/";
     }
     return endpoint + signalPath;
-  }
-
-  @VisibleForTesting
-  static String toEnvVarName(String name) {
-    return name.toUpperCase(Locale.ROOT).replace('.', '_').replace('-', '_');
-  }
-
-  private class FileContentBuilder {
-    private final StringBuilder stringBuilder = new StringBuilder();
-
-    FileContentBuilder addValue(String propertyName, Object value) {
-      stringBuilder.append(toEnvVarName(propertyName)).append('=').append(value).append('\n');
-      return this;
-    }
-
-    FileContentBuilder addValue(String propertyName, Duration value) {
-      return addValue(propertyName, value.toMillis() + "ms");
-    }
-
-    FileContentBuilder add(String propertyName, String defaultValue) {
-      return addValue(propertyName, config.getString(propertyName, defaultValue));
-    }
-
-    String build() {
-      return stringBuilder.toString();
-    }
   }
 }

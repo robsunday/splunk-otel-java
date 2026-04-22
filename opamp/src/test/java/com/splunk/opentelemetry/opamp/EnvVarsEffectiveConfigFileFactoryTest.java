@@ -16,7 +16,6 @@
 
 package com.splunk.opentelemetry.opamp;
 
-import static com.splunk.opentelemetry.opamp.EnvVarsEffectiveConfigFileFactory.toEnvVarName;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentelemetry.sdk.autoconfigure.spi.internal.DefaultConfigProperties;
@@ -47,15 +46,15 @@ class EnvVarsEffectiveConfigFileFactoryTest {
     assertProperties(
         fileContent,
         Map.of(
-            "splunk.profiler.enabled", "true",
-            "splunk.profiler.memory.enabled", "true",
-            "splunk.snapshot.profiler.enabled", "true",
-            "splunk.snapshot.sampling.interval", "26ms",
-            "splunk.profiler.call.stack.interval", "1235ms",
-            "otel.exporter.otlp.traces.endpoint", "https://traces.example.com",
-            "otel.exporter.otlp.metrics.endpoint", "https://metrics.example.com",
-            "otel.exporter.otlp.logs.endpoint", "https://logs.example.com",
-            "otel.service.name", "checkout"));
+            "SPLUNK_PROFILER_ENABLED", "true",
+            "SPLUNK_PROFILER_MEMORY_ENABLED", "true",
+            "SPLUNK_SNAPSHOT_PROFILER_ENABLED", "true",
+            "SPLUNK_SNAPSHOT_PROFILER_SAMPLING_INTERVAL", "26ms",
+            "SPLUNK_PROFILER_CALL_STACK_INTERVAL", "1235ms",
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "https://traces.example.com",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "https://metrics.example.com",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "https://logs.example.com",
+            "OTEL_SERVICE_NAME", "checkout"));
     assertThat(fileContent.size()).isEqualTo(9);
   }
 
@@ -66,15 +65,15 @@ class EnvVarsEffectiveConfigFileFactoryTest {
     assertProperties(
         fileContent,
         Map.of(
-            "splunk.profiler.enabled", "false",
-            "splunk.profiler.memory.enabled", "false",
-            "splunk.snapshot.profiler.enabled", "false",
-            "splunk.snapshot.sampling.interval", "10ms",
-            "splunk.profiler.call.stack.interval", "10000ms",
-            "otel.exporter.otlp.traces.endpoint", "http://localhost:4318/v1/traces",
-            "otel.exporter.otlp.metrics.endpoint", "http://localhost:4318/v1/metrics",
-            "otel.exporter.otlp.logs.endpoint", "http://localhost:4318/v1/logs",
-            "otel.service.name", ""));
+            "SPLUNK_PROFILER_ENABLED", "false",
+            "SPLUNK_PROFILER_MEMORY_ENABLED", "false",
+            "SPLUNK_SNAPSHOT_PROFILER_ENABLED", "false",
+            "SPLUNK_SNAPSHOT_PROFILER_SAMPLING_INTERVAL", "10ms",
+            "SPLUNK_PROFILER_CALL_STACK_INTERVAL", "10000ms",
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4318/v1/traces",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:4318/v1/metrics",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "http://localhost:4318/v1/logs",
+            "OTEL_SERVICE_NAME", ""));
     assertThat(fileContent.size()).isEqualTo(9);
   }
 
@@ -86,9 +85,9 @@ class EnvVarsEffectiveConfigFileFactoryTest {
     assertProperties(
         fileContent,
         Map.of(
-            "otel.exporter.otlp.traces.endpoint", "https://collector:4318/v1/traces",
-            "otel.exporter.otlp.metrics.endpoint", "https://collector:4318/v1/metrics",
-            "otel.exporter.otlp.logs.endpoint", "https://collector:4318/v1/logs"));
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "https://collector:4318/v1/traces",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "https://collector:4318/v1/metrics",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "https://collector:4318/v1/logs"));
   }
 
   @Test
@@ -102,9 +101,9 @@ class EnvVarsEffectiveConfigFileFactoryTest {
     assertProperties(
         fileContent,
         Map.of(
-            "otel.exporter.otlp.traces.endpoint", "https://collector:4317",
-            "otel.exporter.otlp.metrics.endpoint", "https://collector:4317",
-            "otel.exporter.otlp.logs.endpoint", "https://collector:4317"));
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "https://collector:4317",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "https://collector:4317",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "https://collector:4317"));
   }
 
   @Test
@@ -120,9 +119,9 @@ class EnvVarsEffectiveConfigFileFactoryTest {
     assertProperties(
         fileContent,
         Map.of(
-            "otel.exporter.otlp.traces.endpoint", "https://collector:4317",
-            "otel.exporter.otlp.metrics.endpoint", "https://collector:4317",
-            "otel.exporter.otlp.logs.endpoint", "https://collector:4317"));
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "https://collector:4317",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "https://collector:4317",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "https://collector:4317"));
   }
 
   private static String createFileContent(Map<String, String> configMap) {
@@ -143,6 +142,6 @@ class EnvVarsEffectiveConfigFileFactoryTest {
 
   private static void assertProperty(
       Properties fileContent, String propertyName, String expectedValue) {
-    assertThat(fileContent.getProperty(toEnvVarName(propertyName))).isEqualTo(expectedValue);
+    assertThat(fileContent.getProperty(propertyName)).isEqualTo(expectedValue);
   }
 }
