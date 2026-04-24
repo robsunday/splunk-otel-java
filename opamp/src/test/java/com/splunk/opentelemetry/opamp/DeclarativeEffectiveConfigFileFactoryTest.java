@@ -20,15 +20,23 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentelemetry.sdk.extension.incubator.fileconfig.DeclarativeConfiguration;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.DeclarativeConfigurationBuilder;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.OpenTelemetryConfigurationModel;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class DeclarativeEffectiveConfigFileFactoryTest {
+
+  @AfterEach
+  void afterEach() {
+    DeclarativeConfigurationInterceptor.reset();
+  }
 
   @Test
   void createFileSerializesDeclarativeConfigAsYaml(@TempDir Path tempDir) throws Exception {
@@ -77,7 +85,15 @@ class DeclarativeEffectiveConfigFileFactoryTest {
   }
 
   private static class FactoryRunner {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+      Path configFile = Path.of(System.getProperty("otel.config.file"));
+      try (InputStream inputStream = Files.newInputStream(configFile)) {
+        OpenTelemetryConfigurationModel model = DeclarativeConfiguration.parse(inputStream);
+        DeclarativeConfigurationBuilder builder = new DeclarativeConfigurationBuilder();
+        new DeclarativeConfigurationInterceptor().customize(builder);
+        builder.customizeModel(model);
+      }
+
       System.out.print(new DeclarativeEffectiveConfigFileFactory().createFile().body.utf8());
     }
   }

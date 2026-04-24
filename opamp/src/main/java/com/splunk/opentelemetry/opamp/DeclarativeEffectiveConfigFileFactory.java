@@ -22,16 +22,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.annotations.VisibleForTesting;
-import io.opentelemetry.sdk.extension.incubator.fileconfig.DeclarativeConfiguration;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.OpenTelemetryConfigurationModel;
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.Nullable;
 import okio.ByteString;
 import opamp.proto.AgentConfigFile;
 
@@ -50,15 +43,9 @@ class DeclarativeEffectiveConfigFileFactory implements EffectiveConfigFactory {
     return new AgentConfigFile(content, "application/yaml");
   }
 
-  private String buildFileContent() {
-    String declarativeConfigFilePath =
-        System.getProperty("otel.config.file", System.getenv("OTEL_CONFIG_FILE"));
-    if (declarativeConfigFilePath == null) {
-      logger.warning("Unable to get declarative config file path");
-      return "";
-    }
-
-    OpenTelemetryConfigurationModel model = loadDeclarativeConfigFile(declarativeConfigFilePath);
+  public String buildFileContent() {
+    OpenTelemetryConfigurationModel model =
+        DeclarativeConfigurationInterceptor.getConfigurationModel();
     if (model == null) {
       return "";
     }
@@ -76,21 +63,6 @@ class DeclarativeEffectiveConfigFileFactory implements EffectiveConfigFactory {
   @VisibleForTesting
   static OpenTelemetryConfigurationModel postprocessModel(OpenTelemetryConfigurationModel model) {
     // Masking of sensitive data and removing unnecessary data will happen here
-    return model;
-  }
-
-  @Nullable
-  private static OpenTelemetryConfigurationModel loadDeclarativeConfigFile(
-      String declarativeConfigFilePath) {
-    OpenTelemetryConfigurationModel model = null;
-
-    try (InputStream fis =
-        new BufferedInputStream(Files.newInputStream(Paths.get(declarativeConfigFilePath)))) {
-      model = DeclarativeConfiguration.parse(fis);
-    } catch (IOException e) {
-      logger.log(Level.SEVERE, "Error reading declarative config file", e);
-    }
-
     return model;
   }
 }

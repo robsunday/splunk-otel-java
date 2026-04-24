@@ -16,8 +16,26 @@
 
 package com.splunk.opentelemetry.opamp;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import okio.ByteString;
 import opamp.proto.AgentConfigFile;
 
 interface EffectiveConfigFactory {
-  AgentConfigFile createFile();
+  String SPLUNK_PROFILER_ENABLED = "SPLUNK_PROFILER_ENABLED";
+  String SPLUNK_PROFILER_MEMORY_ENABLED = "SPLUNK_PROFILER_MEMORY_ENABLED";
+  String SPLUNK_SNAPSHOT_PROFILER_ENABLED = "SPLUNK_SNAPSHOT_PROFILER_ENABLED";
+  String SPLUNK_SNAPSHOT_PROFILER_SAMPLING_INTERVAL = "SPLUNK_SNAPSHOT_PROFILER_SAMPLING_INTERVAL";
+  String SPLUNK_PROFILER_CALL_STACK_INTERVAL = "SPLUNK_PROFILER_CALL_STACK_INTERVAL";
+  String OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT";
+  String OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT";
+  String OTEL_EXPORTER_OTLP_LOGS_ENDPOINT = "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT";
+  String OTEL_SERVICE_NAME = "OTEL_SERVICE_NAME";
+
+  default AgentConfigFile createFile() {
+    ByteString content = new ByteString(buildFileContent().getBytes(UTF_8));
+    return new AgentConfigFile(content, "text/plain+properties");
+  }
+
+  String buildFileContent();
 }
