@@ -20,9 +20,9 @@ import static io.opentelemetry.api.common.AttributeKey.booleanKey;
 import static io.opentelemetry.api.common.AttributeKey.doubleKey;
 import static io.opentelemetry.api.common.AttributeKey.longKey;
 import static io.opentelemetry.api.common.AttributeKey.valueKey;
+import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_INSTANCE_ID;
 import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME;
 import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAMESPACE;
-import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_VERSION;
 import static io.opentelemetry.semconv.incubating.DeploymentIncubatingAttributes.DEPLOYMENT_ENVIRONMENT_NAME;
 import static io.opentelemetry.semconv.incubating.OsIncubatingAttributes.OS_NAME;
 import static io.opentelemetry.semconv.incubating.OsIncubatingAttributes.OS_TYPE;
@@ -97,8 +97,8 @@ class OpampActivatorTest {
                 "test-deployment-env",
                 SERVICE_NAME,
                 "test-service",
-                SERVICE_VERSION,
-                "test-ver",
+                SERVICE_INSTANCE_ID,
+                "test-instance",
                 SERVICE_NAMESPACE,
                 "test-ns")
             .toBuilder()
@@ -177,61 +177,69 @@ class OpampActivatorTest {
     byte[] body = recordedRequest.request().content().array();
     AgentToServer agentToServer = AgentToServer.ADAPTER.decode(body);
 
-    assertIdentifyingString(agentToServer, DEPLOYMENT_ENVIRONMENT_NAME, "test-deployment-env");
     assertIdentifyingString(agentToServer, SERVICE_NAME, "test-service");
-    assertIdentifyingString(agentToServer, SERVICE_VERSION, "test-ver");
+    assertIdentifyingString(agentToServer, SERVICE_INSTANCE_ID, "test-instance");
     assertIdentifyingString(agentToServer, SERVICE_NAMESPACE, "test-ns");
 
     List<KeyValue> identifyingAttributes = agentToServer.agent_description.identifying_attributes;
-    assertThat(identifyingAttributes)
+    assertThat(identifyingAttributes).hasSize(3);
+
+    List<KeyValue> nonIdentifyingAttributes =
+        agentToServer.agent_description.non_identifying_attributes;
+    assertThat(nonIdentifyingAttributes)
+        .anyMatch(
+            kv ->
+                kv.key.equals(DEPLOYMENT_ENVIRONMENT_NAME.getKey())
+                    && kv.value.string_value.equals("test-deployment-env"));
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(kv -> kv.key.equals("long") && kv.value.int_value.equals(12L));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(kv -> kv.key.equals("double") && kv.value.double_value.equals(99.0));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(kv -> kv.key.equals("bool") && kv.value.bool_value.equals(true));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(kv -> kv.key.equals("val") && kv.value.string_value.equals("vvv"));
     AnyValue longsArray =
         createArrayAttribute(
             new AnyValue.Builder().int_value(2L).build(),
             new AnyValue.Builder().int_value(3L).build(),
             new AnyValue.Builder().int_value(5L).build());
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(kv -> kv.key.equals("longarr") && kv.value.equals(longsArray));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(kv -> kv.key.equals("longobjarr") && kv.value.equals(longsArray));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(
             matching(
                 "doublearr",
                 new AnyValue.Builder().double_value(2.0).build(),
                 new AnyValue.Builder().double_value(3.0).build()));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(
             matching(
                 "doubleobjarr",
                 new AnyValue.Builder().double_value(5.0).build(),
                 new AnyValue.Builder().double_value(6.0).build()));
 
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(
             matching(
                 "stringarr",
                 new AnyValue.Builder().string_value("foo").build(),
                 new AnyValue.Builder().string_value("flimflam").build()));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(
             matching(
                 "stringobjarr",
                 new AnyValue.Builder().string_value("flim").build(),
                 new AnyValue.Builder().string_value("jibberjo").build()));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(
             matching(
                 "boolarr",
                 new AnyValue.Builder().bool_value(true).build(),
                 new AnyValue.Builder().bool_value(false).build()));
-    assertThat(identifyingAttributes)
+    assertThat(nonIdentifyingAttributes)
         .anyMatch(
             matching(
                 "boolobjarr",
@@ -239,8 +247,16 @@ class OpampActivatorTest {
                 new AnyValue.Builder().bool_value(true).build(),
                 new AnyValue.Builder().bool_value(false).build(),
                 new AnyValue.Builder().bool_value(true).build()));
-
-    assertThat(agentToServer.agent_description.non_identifying_attributes).isEmpty();
+    assertThat(nonIdentifyingAttributes)
+        .anyMatch(
+            kv -> kv.key.equals(OS_NAME.getKey()) && kv.value.string_value.equals("test-os-name"));
+    assertThat(nonIdentifyingAttributes)
+        .anyMatch(
+            kv -> kv.key.equals(OS_TYPE.getKey()) && kv.value.string_value.equals("test-os-type"));
+    assertThat(nonIdentifyingAttributes)
+        .anyMatch(
+            kv ->
+                kv.key.equals(OS_VERSION.getKey()) && kv.value.string_value.equals("test-os-ver"));
   }
 
   private static Predicate<? super KeyValue> matching(String key, AnyValue... values) {
