@@ -1,3 +1,7 @@
+plugins {
+  id("splunk.java-conventions")
+}
+
 dependencies {
   compileOnly(project(":custom"))
   compileOnly(project(":profiler"))

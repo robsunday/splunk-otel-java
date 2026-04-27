@@ -23,7 +23,6 @@ import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getResource;
 import static java.util.logging.Level.WARNING;
 
 import com.google.auto.service.AutoService;
-import com.google.common.annotations.VisibleForTesting;
 import io.opentelemetry.javaagent.extension.AgentListener;
 import io.opentelemetry.opamp.client.OpampClient;
 import io.opentelemetry.opamp.client.OpampClientBuilder;
@@ -39,7 +38,6 @@ import io.opentelemetry.sdk.resources.Resource;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import opamp.proto.AgentConfigFile;
@@ -133,74 +131,14 @@ public class OpampActivator implements AgentListener {
           HttpRequestService.create(okhttp, pollingDelay, DEFAULT_DELAY_BETWEEN_RETRIES);
       builder.setRequestService(httpSender);
     }
-    addIdentifyingAttributes(builder, resource);
+    OpampAgentAttributes agentAttributes = new OpampAgentAttributes(resource);
+    agentAttributes.addIdentifyingAttributes(builder);
+    agentAttributes.addNonIdentifyingAttributes(builder);
 
     builder.setEffectiveConfigState(effectiveConfig);
     return builder.build(callbacks);
   }
 
-  static void addIdentifyingAttributes(OpampClientBuilder builder, Resource res) {
-    res.getAttributes()
-        .forEach(
-            (key, value) -> {
-              switch (key.getType()) {
-                case STRING:
-                  builder.putIdentifyingAttribute(key.getKey(), (String) value);
-                  break;
-                case LONG:
-                  builder.putIdentifyingAttribute(key.getKey(), (long) value);
-                  break;
-                case DOUBLE:
-                  builder.putIdentifyingAttribute(key.getKey(), (double) value);
-                  break;
-                case BOOLEAN:
-                  builder.putIdentifyingAttribute(key.getKey(), (boolean) value);
-                  break;
-                case VALUE:
-                  builder.putIdentifyingAttribute(key.getKey(), value.toString());
-                  break;
-                case STRING_ARRAY:
-                  {
-                    List<String> typedValueList = (List<String>) value;
-                    String[] array = typedValueList.toArray(new String[] {});
-                    builder.putIdentifyingAttribute(key.getKey(), array);
-                    break;
-                  }
-                case LONG_ARRAY:
-                  {
-                    List<Long> typedValueList = (List<Long>) value;
-                    long[] primitiveArray = new long[typedValueList.size()];
-                    for (int i = 0; i < typedValueList.size(); i++) {
-                      primitiveArray[i] = typedValueList.get(i);
-                    }
-                    builder.putIdentifyingAttribute(key.getKey(), primitiveArray);
-                    break;
-                  }
-                case DOUBLE_ARRAY:
-                  {
-                    List<Double> typedValueList = (List<Double>) value;
-                    double[] primitiveArray = new double[typedValueList.size()];
-                    for (int i = 0; i < typedValueList.size(); i++) {
-                      primitiveArray[i] = typedValueList.get(i);
-                    }
-                    builder.putIdentifyingAttribute(key.getKey(), primitiveArray);
-                    break;
-                  }
-                case BOOLEAN_ARRAY:
-                  {
-                    List<Boolean> typedValueList = (List<Boolean>) value;
-                    boolean[] primitiveArray = new boolean[typedValueList.size()];
-                    for (int i = 0; i < typedValueList.size(); i++) {
-                      primitiveArray[i] = typedValueList.get(i);
-                    }
-                    builder.putIdentifyingAttribute(key.getKey(), primitiveArray);
-                    break;
-                  }
-              }
-            });
-  }
-
-  @VisibleForTesting
   static State.EffectiveConfig buildEffectiveConfig(EffectiveConfigFactory effectiveConfigFactory) {
     return new State.EffectiveConfig() {
       @Override
