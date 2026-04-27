@@ -46,21 +46,14 @@ class EnvVarsEffectiveConfigFileFactory implements EffectiveConfigFactory {
     SnapshotProfilingConfiguration snapshotConfiguration =
         new SnapshotProfilingEnvVarsConfiguration(config);
 
-    return builder
-        .add(SPLUNK_PROFILER_ENABLED, profilerConfiguration.isEnabled())
-        .add(SPLUNK_PROFILER_MEMORY_ENABLED, profilerConfiguration.getMemoryEnabled())
-        .add(SPLUNK_SNAPSHOT_PROFILER_ENABLED, snapshotConfiguration.isEnabled())
-        .add(
-            SPLUNK_SNAPSHOT_PROFILER_SAMPLING_INTERVAL, snapshotConfiguration.getSamplingInterval())
-        .add(SPLUNK_PROFILER_CALL_STACK_INTERVAL, profilerConfiguration.getCallStackInterval());
+    return addSplunkEnvVars(builder, profilerConfiguration, snapshotConfiguration);
   }
 
   private EffectiveConfigBuilder addOtelEnvVars(EffectiveConfigBuilder builder) {
     return builder
         .add(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, getSignalEndpoint(config, OTLP_SIGNAL_TRACES))
         .add(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, getSignalEndpoint(config, OTLP_SIGNAL_METRICS))
-        .add(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, getSignalEndpoint(config, OTLP_SIGNAL_LOGS))
-        .add(OTEL_SERVICE_NAME, config.getString("otel.service.name", ""));
+        .add(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, getSignalEndpoint(config, OTLP_SIGNAL_LOGS));
   }
 
   private static String getSignalEndpoint(ConfigProperties config, String signal) {

@@ -13,7 +13,6 @@ dependencies {
 
   annotationProcessor("com.google.auto.service:auto-service")
   compileOnly("com.google.auto.service:auto-service")
-  compileOnly("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
 
   implementation("io.opentelemetry.contrib:opentelemetry-opamp-client")
 

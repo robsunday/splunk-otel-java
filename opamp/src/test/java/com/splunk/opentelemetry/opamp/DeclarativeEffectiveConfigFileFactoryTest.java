@@ -16,16 +16,24 @@
 
 package com.splunk.opentelemetry.opamp;
 
+import static io.opentelemetry.api.incubator.config.DeclarativeConfigProperties.empty;
+import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getDistributionConfig;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.splunk.opentelemetry.profiler.ProfilerDeclarativeConfiguration;
+import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingDeclarativeConfiguration;
+import io.opentelemetry.api.incubator.config.DeclarativeConfigProperties;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.DeclarativeConfiguration;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.DeclarativeConfigurationBuilder;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.OpenTelemetryConfigurationModel;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -36,25 +44,48 @@ class DeclarativeEffectiveConfigFileFactoryTest {
   @AfterEach
   void afterEach() {
     DeclarativeConfigurationInterceptor.reset();
+    ProfilerDeclarativeConfiguration.SUPPLIER.reset();
+    SnapshotProfilingDeclarativeConfiguration.SUPPLIER.reset();
   }
 
   @Test
-  void createFileSerializesDeclarativeConfigAsYaml(@TempDir Path tempDir) throws Exception {
+  void buildFileContent_reportsSignalEndpoints(@TempDir Path tempDir) throws Exception {
     // given
     Path configFile = tempDir.resolve("declarative-config.yaml");
     Files.writeString(
         configFile,
         """
             file_format: 1.0
-            disabled: true
-            resource:
-              attributes:
-                - name: service.name
-                  value: ${OTEL_SERVICE_NAME}
+            tracer_provider:
+              processors:
+                - batch:
+                    exporter:
+                      otlp_http:
+                        endpoint: https://traces.example.com
+            meter_provider:
+              readers:
+                - periodic:
+                    exporter:
+                      otlp_grpc:
+                        endpoint: https://metrics.example.com
+            logger_provider:
+              processors:
+                - simple:
+                    exporter:
+                      otlp_http:
+                        endpoint: https://logs.example.com
+            distribution:
+              splunk:
+                profiling:
+                  always_on:
+                    cpu_profiler:
+                      sampling_interval: 1410
+                    memory_profiler:
+                  callgraphs:
+                    sampling_interval: 10
             """,
         UTF_8);
 
-    // Environment variables cannot be set in current process, so a new process must be launched.
     ProcessBuilder processBuilder =
         new ProcessBuilder(
                 System.getProperty("java.home") + "/bin/java",
@@ -63,7 +94,6 @@ class DeclarativeEffectiveConfigFileFactoryTest {
                 "-Dotel.config.file=" + configFile,
                 FactoryRunner.class.getName())
             .redirectErrorStream(true);
-    processBuilder.environment().put("OTEL_SERVICE_NAME", "test-service");
 
     // when
     Process process = processBuilder.start();
@@ -71,17 +101,102 @@ class DeclarativeEffectiveConfigFileFactoryTest {
 
     // then
     assertThat(processExecutionStatus).isTrue();
-    String yaml = new String(process.getInputStream().readAllBytes(), UTF_8);
-    assertThat(process.exitValue()).describedAs(yaml).isZero();
+    String fileContent = new String(process.getInputStream().readAllBytes(), UTF_8);
+    assertThat(process.exitValue()).describedAs(fileContent).isZero();
 
+    Properties properties = loadProperties(fileContent);
+    assertProperties(
+        properties,
+        Map.of(
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "https://traces.example.com",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "https://metrics.example.com",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "https://logs.example.com"));
+  }
+
+  @Test
+  void addOtelVars_reportsMissingEndpointAsEmptyStrings() throws Exception {
+    OpenTelemetryConfigurationModel model = parseModel("file_format: 1.0");
+
+    EffectiveConfigBuilder builder = new EffectiveConfigBuilder();
+    new DeclarativeEffectiveConfigFileFactory().addOtelVars(builder, model);
+
+    Properties properties = loadProperties(builder.build());
+    assertProperties(
+        properties,
+        Map.of(
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", ""));
+  }
+
+  @Test
+  void addOtelVars_usesDefaultHttpEndpointsWhenEndpointsAreOmitted() throws Exception {
     OpenTelemetryConfigurationModel model =
-        DeclarativeConfiguration.parse(new ByteArrayInputStream(yaml.getBytes(UTF_8)));
-    assertThat(model.getFileFormat()).isEqualTo("1.0");
-    assertThat(model.getDisabled()).isTrue();
-    assertThat(model.getResource()).isNotNull();
-    assertThat(model.getResource().getAttributes()).hasSize(1);
-    assertThat(model.getResource().getAttributes().get(0).getName()).isEqualTo("service.name");
-    assertThat(model.getResource().getAttributes().get(0).getValue()).isEqualTo("test-service");
+        parseModel(
+            """
+            file_format: 1.0
+            tracer_provider:
+              processors:
+                - batch:
+                    exporter:
+                      otlp_http:
+            meter_provider:
+              readers:
+                - periodic:
+                    exporter:
+                      otlp_http:
+            logger_provider:
+              processors:
+                - simple:
+                    exporter:
+                      otlp_http:
+            """);
+
+    EffectiveConfigBuilder builder = new EffectiveConfigBuilder();
+    new DeclarativeEffectiveConfigFileFactory().addOtelVars(builder, model);
+
+    Properties properties = loadProperties(builder.build());
+    assertProperties(
+        properties,
+        Map.of(
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4318/v1/traces",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:4318/v1/metrics",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "http://localhost:4318/v1/logs"));
+  }
+
+  @Test
+  void addOtelVars_usesDefaultGrpcEndpointsWhenEndpointsAreOmitted() throws Exception {
+    OpenTelemetryConfigurationModel model =
+        parseModel(
+            """
+            file_format: 1.0
+            tracer_provider:
+              processors:
+                - batch:
+                    exporter:
+                      otlp_grpc:
+            meter_provider:
+              readers:
+                - periodic:
+                    exporter:
+                      otlp_grpc:
+            logger_provider:
+              processors:
+                - simple:
+                    exporter:
+                      otlp_grpc:
+            """);
+
+    EffectiveConfigBuilder builder = new EffectiveConfigBuilder();
+    new DeclarativeEffectiveConfigFileFactory().addOtelVars(builder, model);
+
+    Properties properties = loadProperties(builder.build());
+    assertProperties(
+        properties,
+        Map.of(
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:4317",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "http://localhost:4317"));
   }
 
   private static class FactoryRunner {
@@ -89,12 +204,36 @@ class DeclarativeEffectiveConfigFileFactoryTest {
       Path configFile = Path.of(System.getProperty("otel.config.file"));
       try (InputStream inputStream = Files.newInputStream(configFile)) {
         OpenTelemetryConfigurationModel model = DeclarativeConfiguration.parse(inputStream);
+
+        DeclarativeConfigProperties profilingConfig =
+            getDistributionConfig(model).getStructured("profiling", empty());
+        ProfilerDeclarativeConfiguration.SUPPLIER.configure(
+            new ProfilerDeclarativeConfiguration(profilingConfig));
+        SnapshotProfilingDeclarativeConfiguration.SUPPLIER.configure(
+            new SnapshotProfilingDeclarativeConfiguration(profilingConfig));
+
         DeclarativeConfigurationBuilder builder = new DeclarativeConfigurationBuilder();
         new DeclarativeConfigurationInterceptor().customize(builder);
         builder.customizeModel(model);
       }
 
-      System.out.print(new DeclarativeEffectiveConfigFileFactory().createFile().body.utf8());
+      System.out.print(new DeclarativeEffectiveConfigFileFactory().buildFileContent());
     }
+  }
+
+  private static OpenTelemetryConfigurationModel parseModel(String yaml) throws Exception {
+    return DeclarativeConfiguration.parse(new ByteArrayInputStream(yaml.getBytes(UTF_8)));
+  }
+
+  private static Properties loadProperties(String content) throws Exception {
+    Properties properties = new Properties();
+    properties.load(new StringReader(content));
+    return properties;
+  }
+
+  private static void assertProperties(Properties fileContent, Map<String, String> expectedValues) {
+    expectedValues.forEach(
+        (propertyName, expectedValue) ->
+            assertThat(fileContent.getProperty(propertyName)).isEqualTo(expectedValue));
   }
 }

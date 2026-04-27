@@ -16,32 +16,27 @@
 
 package com.splunk.opentelemetry.opamp;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.splunk.opentelemetry.profiler.ProfilerConfiguration;
+import com.splunk.opentelemetry.profiler.ProfilerDeclarativeConfiguration;
+import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingConfiguration;
+import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingDeclarativeConfiguration;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.LogRecordExporterModel;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.LogRecordProcessorModel;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.LoggerProviderModel;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.MeterProviderModel;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.MetricReaderModel;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.OpenTelemetryConfigurationModel;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import okio.ByteString;
-import opamp.proto.AgentConfigFile;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.PushMetricExporterModel;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.SpanExporterModel;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.SpanProcessorModel;
+import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.TracerProviderModel;
+import java.util.Optional;
 
 class DeclarativeEffectiveConfigFileFactory implements EffectiveConfigFactory {
-  private static final Logger logger =
-      Logger.getLogger(DeclarativeEffectiveConfigFileFactory.class.getName());
-
-  private static final YAMLMapper YAML_MAPPER =
-      YAMLMapper.builder().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER).build();
+  private static final String GRPC_DEFAULT_ENDPOINT = "http://localhost:4317";
 
   DeclarativeEffectiveConfigFileFactory() {}
-
-  @Override
-  public AgentConfigFile createFile() {
-    ByteString content = new ByteString(buildFileContent().getBytes(UTF_8));
-    return new AgentConfigFile(content, "application/yaml");
-  }
 
   public String buildFileContent() {
     OpenTelemetryConfigurationModel model =
@@ -50,19 +45,140 @@ class DeclarativeEffectiveConfigFileFactory implements EffectiveConfigFactory {
       return "";
     }
 
-    model = postprocessModel(model);
-
-    try {
-      return YAML_MAPPER.writeValueAsString(model);
-    } catch (JsonProcessingException e) {
-      logger.log(Level.SEVERE, "Error serializing declarative config model", e);
-      return "";
-    }
+    return processModel(model);
   }
 
   @VisibleForTesting
-  static OpenTelemetryConfigurationModel postprocessModel(OpenTelemetryConfigurationModel model) {
-    // Masking of sensitive data and removing unnecessary data will happen here
-    return model;
+  String processModel(OpenTelemetryConfigurationModel model) {
+    EffectiveConfigBuilder builder = new EffectiveConfigBuilder();
+    ProfilerConfiguration profilerConfiguration = ProfilerDeclarativeConfiguration.SUPPLIER.get();
+    SnapshotProfilingConfiguration snapshotConfiguration =
+        SnapshotProfilingDeclarativeConfiguration.SUPPLIER.get();
+
+    addSplunkEnvVars(builder, profilerConfiguration, snapshotConfiguration);
+    addOtelVars(builder, model);
+
+    return builder.build();
+  }
+
+  @VisibleForTesting
+  void addOtelVars(
+      EffectiveConfigBuilder builder, OpenTelemetryConfigurationModel configurationModel) {
+    builder
+        .add(
+            OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+            getTracesEndpoint(configurationModel.getTracerProvider()))
+        .add(
+            OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
+            getMetricsEndpoint(configurationModel.getMeterProvider()))
+        .add(
+            OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
+            getLogsEndpoint(configurationModel.getLoggerProvider()));
+  }
+
+  private String getTracesEndpoint(TracerProviderModel tracerProvider) {
+    if (tracerProvider != null) {
+      for (SpanProcessorModel spanProcessor : tracerProvider.getProcessors()) {
+        String endpoint = getEndpoint(getSpanExporter(spanProcessor));
+        if (endpoint != null) {
+          return endpoint;
+        }
+      }
+    }
+    return "";
+  }
+
+  private String getMetricsEndpoint(MeterProviderModel meterProvider) {
+    if (meterProvider != null) {
+      for (MetricReaderModel metricReader : meterProvider.getReaders()) {
+        String endpoint = getEndpoint(getMetricExporter(metricReader));
+        if (endpoint != null) {
+          return endpoint;
+        }
+      }
+    }
+    return "";
+  }
+
+  private String getLogsEndpoint(LoggerProviderModel loggerProvider) {
+    if (loggerProvider != null) {
+      for (LogRecordProcessorModel processor : loggerProvider.getProcessors()) {
+        String endpoint = getEndpoint(getLogRecordExporter(processor));
+        if (endpoint != null) {
+          return endpoint;
+        }
+      }
+    }
+    return "";
+  }
+
+  private static SpanExporterModel getSpanExporter(SpanProcessorModel processor) {
+    if (processor.getBatch() != null) {
+      return processor.getBatch().getExporter();
+    }
+    if (processor.getSimple() != null) {
+      return processor.getSimple().getExporter();
+    }
+    return null;
+  }
+
+  private static PushMetricExporterModel getMetricExporter(MetricReaderModel metricReader) {
+    if (metricReader.getPeriodic() != null) {
+      return metricReader.getPeriodic().getExporter();
+    }
+    return null;
+  }
+
+  private static LogRecordExporterModel getLogRecordExporter(LogRecordProcessorModel processor) {
+    if (processor.getBatch() != null) {
+      return processor.getBatch().getExporter();
+    }
+    if (processor.getSimple() != null) {
+      return processor.getSimple().getExporter();
+    }
+    return null;
+  }
+
+  private static String getEndpoint(SpanExporterModel exporter) {
+    if (exporter == null) {
+      return null;
+    }
+    if (exporter.getOtlpHttp() != null) {
+      return Optional.ofNullable(exporter.getOtlpHttp().getEndpoint())
+          .orElse("http://localhost:4318/v1/traces");
+    } else if (exporter.getOtlpGrpc() != null) {
+      return Optional.ofNullable(exporter.getOtlpGrpc().getEndpoint())
+          .orElse(GRPC_DEFAULT_ENDPOINT);
+    }
+    return null;
+  }
+
+  private static String getEndpoint(PushMetricExporterModel exporter) {
+    if (exporter == null) {
+      return null;
+    }
+    if (exporter.getOtlpHttp() != null) {
+      return Optional.ofNullable(exporter.getOtlpHttp().getEndpoint())
+          .orElse("http://localhost:4318/v1/metrics");
+    } else if (exporter.getOtlpGrpc() != null) {
+      return Optional.ofNullable(exporter.getOtlpGrpc().getEndpoint())
+          .orElse(GRPC_DEFAULT_ENDPOINT);
+    }
+    return null;
+  }
+
+  private static String getEndpoint(LogRecordExporterModel exporter) {
+    if (exporter == null) {
+      return null;
+    }
+    if (exporter.getOtlpHttp() != null) {
+      return Optional.ofNullable(exporter.getOtlpHttp().getEndpoint())
+          .orElse("http://localhost:4318/v1/logs");
+    } else if (exporter.getOtlpGrpc() != null) {
+      return Optional.ofNullable(exporter.getOtlpGrpc().getEndpoint())
+          .orElse(GRPC_DEFAULT_ENDPOINT);
+    }
+
+    return null;
   }
 }
