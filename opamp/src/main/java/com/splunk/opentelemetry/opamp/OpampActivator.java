@@ -31,6 +31,7 @@ import io.opentelemetry.opamp.client.internal.request.delay.PeriodicDelay;
 import io.opentelemetry.opamp.client.internal.request.service.HttpRequestService;
 import io.opentelemetry.opamp.client.internal.response.MessageData;
 import io.opentelemetry.opamp.client.internal.state.State;
+import io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import io.opentelemetry.sdk.resources.Resource;
@@ -65,9 +66,13 @@ public class OpampActivator implements AgentListener {
             OP_AMP_POLLING_INTERVAL, DEFAULT_DELAY_BETWEEN_REQUESTS.getNextDelay().toMillis());
 
     String endpoint = config.getString(OP_AMP_ENDPOINT);
+    EffectiveConfigFactory effectiveConfigFactory =
+        createEffectiveConfigFactory(autoConfiguredOpenTelemetrySdk);
+    State.EffectiveConfig effectiveConfig = buildEffectiveConfig(effectiveConfigFactory);
+
     OpampClient client =
         startOpampClient(
-            config,
+            effectiveConfig,
             endpoint,
             resource,
             pollingDuration,
@@ -102,8 +107,15 @@ public class OpampActivator implements AgentListener {
                 }));
   }
 
+  private EffectiveConfigFactory createEffectiveConfigFactory(AutoConfiguredOpenTelemetrySdk sdk) {
+    if (AutoConfigureUtil.isDeclarativeConfig(sdk)) {
+      return new DeclarativeEffectiveConfigFileFactory();
+    }
+    return new EnvVarsEffectiveConfigFileFactory(getConfig(sdk));
+  }
+
   static OpampClient startOpampClient(
-      ConfigProperties config,
+      State.EffectiveConfig effectiveConfig,
       String endpoint,
       Resource resource,
       long pollingDurationMillis,
@@ -123,17 +135,15 @@ public class OpampActivator implements AgentListener {
     agentAttributes.addIdentifyingAttributes(builder);
     agentAttributes.addNonIdentifyingAttributes(builder);
 
-    State.EffectiveConfig effectiveConfig = buildEffectiveConfig(config);
     builder.setEffectiveConfigState(effectiveConfig);
     return builder.build(callbacks);
   }
 
-  private static State.EffectiveConfig buildEffectiveConfig(ConfigProperties config) {
-    // TODO: This probably doesn't handle declarative config (yaml) correctly. Ho hum.
+  static State.EffectiveConfig buildEffectiveConfig(EffectiveConfigFactory effectiveConfigFactory) {
     return new State.EffectiveConfig() {
       @Override
       public opamp.proto.EffectiveConfig get() {
-        AgentConfigFile file = new EnvVarsEffectiveConfigFileFactory(config).createFile();
+        AgentConfigFile file = effectiveConfigFactory.createFile();
 
         Map<String, AgentConfigFile> configItems = new HashMap<>();
         configItems.put("config", file);

@@ -16,16 +16,13 @@
 
 package com.splunk.opentelemetry.opamp;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import com.google.common.annotations.VisibleForTesting;
+import com.splunk.opentelemetry.profiler.ProfilerConfiguration;
 import com.splunk.opentelemetry.profiler.ProfilerEnvVarsConfiguration;
+import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingConfiguration;
 import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingEnvVarsConfiguration;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
-import okio.ByteString;
-import opamp.proto.AgentConfigFile;
 
-class EnvVarsEffectiveConfigFileFactory {
+class EnvVarsEffectiveConfigFileFactory implements EffectiveConfigFactory {
   private static final String OTEL_EXPORTER_OTLP_ENDPOINT = "otel.exporter.otlp.endpoint";
   private static final String OTEL_EXPORTER_OTLP_PROTOCOL = "otel.exporter.otlp.protocol";
   private static final String OTLP_PROTOCOL_HTTP_PROTOBUF = "http/protobuf";
@@ -39,37 +36,24 @@ class EnvVarsEffectiveConfigFileFactory {
     this.config = config;
   }
 
-  AgentConfigFile createFile() {
-    ByteString content = new ByteString(buildFileContent().getBytes(UTF_8));
-    return new AgentConfigFile(content, "text/plain+properties");
-  }
-
-  @VisibleForTesting
-  String buildFileContent() {
+  @Override
+  public String buildFileContent() {
     return addSplunkEnvVars(addOtelEnvVars(new EffectiveConfigBuilder())).build();
   }
 
   private EffectiveConfigBuilder addSplunkEnvVars(EffectiveConfigBuilder builder) {
-    ProfilerEnvVarsConfiguration profilerConfiguration = new ProfilerEnvVarsConfiguration(config);
-    SnapshotProfilingEnvVarsConfiguration snapshotConfiguration =
+    ProfilerConfiguration profilerConfiguration = new ProfilerEnvVarsConfiguration(config);
+    SnapshotProfilingConfiguration snapshotConfiguration =
         new SnapshotProfilingEnvVarsConfiguration(config);
 
-    return builder
-        .add("SPLUNK_PROFILER_ENABLED", profilerConfiguration.isEnabled())
-        .add("SPLUNK_PROFILER_MEMORY_ENABLED", profilerConfiguration.getMemoryEnabled())
-        .add("SPLUNK_SNAPSHOT_PROFILER_ENABLED", snapshotConfiguration.isEnabled())
-        .add(
-            "SPLUNK_SNAPSHOT_PROFILER_SAMPLING_INTERVAL",
-            snapshotConfiguration.getSamplingInterval())
-        .add("SPLUNK_PROFILER_CALL_STACK_INTERVAL", profilerConfiguration.getCallStackInterval());
+    return addSplunkEnvVars(builder, profilerConfiguration, snapshotConfiguration);
   }
 
   private EffectiveConfigBuilder addOtelEnvVars(EffectiveConfigBuilder builder) {
     return builder
-        .add("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", getSignalEndpoint(config, OTLP_SIGNAL_TRACES))
-        .add("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", getSignalEndpoint(config, OTLP_SIGNAL_METRICS))
-        .add("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", getSignalEndpoint(config, OTLP_SIGNAL_LOGS))
-        .add("OTEL_SERVICE_NAME", config.getString("otel.service.name", ""));
+        .add(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, getSignalEndpoint(config, OTLP_SIGNAL_TRACES))
+        .add(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, getSignalEndpoint(config, OTLP_SIGNAL_METRICS))
+        .add(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, getSignalEndpoint(config, OTLP_SIGNAL_LOGS));
   }
 
   private static String getSignalEndpoint(ConfigProperties config, String signal) {
