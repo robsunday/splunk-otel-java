@@ -108,9 +108,9 @@ class DeclarativeEffectiveConfigFileFactoryTest {
     assertProperties(
         properties,
         Map.of(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "https://traces.example.com",
-            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "https://metrics.example.com",
-            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "https://logs.example.com"));
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINTS", "\"https://traces.example.com\"",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINTS", "\"https://metrics.example.com\"",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINTS", "\"https://logs.example.com\""));
   }
 
   @Test
@@ -124,9 +124,9 @@ class DeclarativeEffectiveConfigFileFactoryTest {
     assertProperties(
         properties,
         Map.of(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "",
-            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "",
-            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", ""));
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINTS", "",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINTS", "",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINTS", ""));
   }
 
   @Test
@@ -159,9 +159,9 @@ class DeclarativeEffectiveConfigFileFactoryTest {
     assertProperties(
         properties,
         Map.of(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4318/v1/traces",
-            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:4318/v1/metrics",
-            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "http://localhost:4318/v1/logs"));
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINTS", "\"http://localhost:4318/v1/traces\"",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINTS", "\"http://localhost:4318/v1/metrics\"",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINTS", "\"http://localhost:4318/v1/logs\""));
   }
 
   @Test
@@ -194,9 +194,58 @@ class DeclarativeEffectiveConfigFileFactoryTest {
     assertProperties(
         properties,
         Map.of(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317",
-            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:4317",
-            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "http://localhost:4317"));
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINTS", "\"http://localhost:4317\"",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINTS", "\"http://localhost:4317\"",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINTS", "\"http://localhost:4317\""));
+  }
+
+  @Test
+  void addOtelVars_whenMultipleEndpointsDefined() throws Exception {
+    OpenTelemetryConfigurationModel model =
+        parseModel(
+            """
+            file_format: 1.0
+            tracer_provider:
+              processors:
+                - batch:
+                    exporter:
+                      otlp_http:
+                        endpoint: https://traces.example.com
+                - simple:
+                    exporter:
+                      otlp_grpc:
+            meter_provider:
+              readers:
+                - periodic:
+                    exporter:
+                      otlp_grpc:
+                        endpoint: https://metrics.example.com
+                - periodic:
+                    exporter:
+                      otlp_http:
+                        endpoint: https://acme.com/
+            logger_provider:
+              processors:
+                - simple:
+                    exporter:
+                      otlp_http:
+                        endpoint: https://logs.example.com
+                - batch:
+                    exporter:
+                      otlp_grpc:
+                        endpoint: https://acme.com
+            """);
+
+    EffectiveConfigBuilder builder = new EffectiveConfigBuilder();
+    new DeclarativeEffectiveConfigFileFactory().addOtelVars(builder, model);
+
+    Properties properties = loadProperties(builder.build());
+    assertProperties(
+        properties,
+        Map.of(
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINTS", "\"https://traces.example.com\", \"http://localhost:4317\"",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINTS", "\"https://metrics.example.com\", \"https://acme.com/\"",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINTS", "\"https://logs.example.com\", \"https://acme.com\""));
   }
 
   private static class FactoryRunner {
@@ -234,6 +283,6 @@ class DeclarativeEffectiveConfigFileFactoryTest {
   private static void assertProperties(Properties fileContent, Map<String, String> expectedValues) {
     expectedValues.forEach(
         (propertyName, expectedValue) ->
-            assertThat(fileContent.getProperty(propertyName)).isEqualTo(expectedValue));
+            assertThat(fileContent.getProperty(propertyName)).isNotNull().isEqualTo(expectedValue));
   }
 }
