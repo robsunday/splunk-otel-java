@@ -243,9 +243,12 @@ class DeclarativeEffectiveConfigFileFactoryTest {
     assertProperties(
         properties,
         Map.of(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINTS", "\"https://traces.example.com\", \"http://localhost:4317\"",
-            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINTS", "\"https://metrics.example.com\", \"https://acme.com/\"",
-            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINTS", "\"https://logs.example.com\", \"https://acme.com\""));
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINTS",
+                "\"https://traces.example.com\", \"http://localhost:4317\"",
+            "OTEL_EXPORTER_OTLP_METRICS_ENDPOINTS",
+                "\"https://metrics.example.com\", \"https://acme.com/\"",
+            "OTEL_EXPORTER_OTLP_LOGS_ENDPOINTS",
+                "\"https://logs.example.com\", \"https://acme.com\""));
   }
 
   private static class FactoryRunner {
