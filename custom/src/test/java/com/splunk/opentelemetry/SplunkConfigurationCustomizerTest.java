@@ -40,14 +40,16 @@ class SplunkConfigurationCustomizerTest {
   @Test
   void usesLocalIngestIfRealmIsNone() {
     ConfigProperties config =
-        configuration(() -> Map.of(SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY, SPLUNK_REALM_NONE));
+        configuration(
+            () -> Map.of(SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY, SPLUNK_REALM_NONE));
 
     assertThat(config.getString(OTLP_ENDPOINT)).isNull();
   }
 
   @Test
   void realmIsNotHardcoded() {
-    var config = configuration(() -> Map.of(SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY, "test1"));
+    var config =
+        configuration(() -> Map.of(SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY, "test1"));
 
     assertThat(config.getString(OTLP_ENDPOINT))
         .isEqualTo("https://ingest.test1.observability.splunkcloud.com");

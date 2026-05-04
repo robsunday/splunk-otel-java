@@ -28,7 +28,8 @@ import java.util.logging.Logger;
 
 @AutoService(AutoConfigurationCustomizerProvider.class)
 public class SplunkConfigurationCustomizer implements AutoConfigurationCustomizerProvider {
-  private static final Logger logger = Logger.getLogger(SplunkConfigurationCustomizer.class.getName());
+  private static final Logger logger =
+      Logger.getLogger(SplunkConfigurationCustomizer.class.getName());
 
   public static final String SPLUNK_ACCESS_TOKEN = "splunk.access.token";
   public static final String SPLUNK_REALM_PROPERTY = "splunk.realm";

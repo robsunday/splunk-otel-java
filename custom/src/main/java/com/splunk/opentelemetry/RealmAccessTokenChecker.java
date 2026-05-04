@@ -65,7 +65,8 @@ public class RealmAccessTokenChecker implements BeforeAgentListener {
   private static boolean isRealmConfigured(ConfigProperties config) {
     String realm =
         config.getString(
-            SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY, SplunkConfigurationCustomizer.SPLUNK_REALM_NONE);
+            SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY,
+            SplunkConfigurationCustomizer.SPLUNK_REALM_NONE);
     return !realm.equals(SplunkConfigurationCustomizer.SPLUNK_REALM_NONE);
   }
 
