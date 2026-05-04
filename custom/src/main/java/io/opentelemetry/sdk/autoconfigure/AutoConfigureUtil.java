@@ -60,7 +60,8 @@ public final class AutoConfigureUtil {
 
   /** Returns the {@link ConfigProperties} used for auto-configuration. */
   public static ConfigProperties getConfig(AutoConfiguredOpenTelemetrySdk sdk) {
-    ConfigProperties config = sdk.getConfig();
+    ConfigProperties config =
+        io.opentelemetry.sdk.autoconfigure.internal.AutoConfigureUtil.getConfig(sdk);
     if (config == null) {
       config = new DeclarativeConfigPropertiesBridgeBuilder().build(sdk);
     }
@@ -126,6 +127,6 @@ public final class AutoConfigureUtil {
   }
 
   public static Resource getResource(AutoConfiguredOpenTelemetrySdk sdk) {
-    return sdk.getResource();
+    return SdkAutoconfigureAccess.getResource(sdk);
   }
 }

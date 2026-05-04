@@ -16,7 +16,7 @@
 
 package com.splunk.opentelemetry;
 
-import static com.splunk.opentelemetry.SplunkConfiguration.SPLUNK_REALM_NONE;
+import static com.splunk.opentelemetry.SplunkConfigurationCustomizer.SPLUNK_REALM_NONE;
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
-class SplunkConfigurationTest {
+class SplunkConfigurationCustomizerTest {
 
   private static final String OTLP_ENDPOINT = "otel.exporter.otlp.endpoint";
 
@@ -40,14 +40,14 @@ class SplunkConfigurationTest {
   @Test
   void usesLocalIngestIfRealmIsNone() {
     ConfigProperties config =
-        configuration(() -> Map.of(SplunkConfiguration.SPLUNK_REALM_PROPERTY, SPLUNK_REALM_NONE));
+        configuration(() -> Map.of(SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY, SPLUNK_REALM_NONE));
 
     assertThat(config.getString(OTLP_ENDPOINT)).isNull();
   }
 
   @Test
   void realmIsNotHardcoded() {
-    var config = configuration(() -> Map.of(SplunkConfiguration.SPLUNK_REALM_PROPERTY, "test1"));
+    var config = configuration(() -> Map.of(SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY, "test1"));
 
     assertThat(config.getString(OTLP_ENDPOINT))
         .isEqualTo("https://ingest.test1.observability.splunkcloud.com");
@@ -56,7 +56,7 @@ class SplunkConfigurationTest {
   @Test
   void shouldSetOtlpHeader() {
     ConfigProperties config =
-        configuration(() -> Map.of(SplunkConfiguration.SPLUNK_ACCESS_TOKEN, "token"));
+        configuration(() -> Map.of(SplunkConfigurationCustomizer.SPLUNK_ACCESS_TOKEN, "token"));
 
     assertThat(config.getString("otel.exporter.otlp.headers")).isEqualTo("X-SF-TOKEN=token");
   }
@@ -67,7 +67,7 @@ class SplunkConfigurationTest {
         configuration(
             () ->
                 Map.of(
-                    SplunkConfiguration.SPLUNK_ACCESS_TOKEN,
+                    SplunkConfigurationCustomizer.SPLUNK_ACCESS_TOKEN,
                     "token",
                     "otel.exporter.otlp.headers",
                     "key=value"));

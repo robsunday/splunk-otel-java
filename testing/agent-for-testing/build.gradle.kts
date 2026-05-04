@@ -28,6 +28,7 @@ dependencies {
   bootstrapLibs(project(":bootstrap"))
   javaagentLibs(project(":custom"))
   javaagentLibs(project(":opamp"))
+  javaagentLibs(project(":profiler"))
   // include testing extensions
   javaagentLibs(project(":testing:agent-test-extension"))
 

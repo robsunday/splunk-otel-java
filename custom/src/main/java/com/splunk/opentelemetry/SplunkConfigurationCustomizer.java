@@ -27,12 +27,10 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 @AutoService(AutoConfigurationCustomizerProvider.class)
-public class SplunkConfiguration implements AutoConfigurationCustomizerProvider {
-  private static final Logger logger = Logger.getLogger(SplunkConfiguration.class.getName());
+public class SplunkConfigurationCustomizer implements AutoConfigurationCustomizerProvider {
+  private static final Logger logger = Logger.getLogger(SplunkConfigurationCustomizer.class.getName());
 
   public static final String SPLUNK_ACCESS_TOKEN = "splunk.access.token";
-  public static final String PROFILER_ENABLED_PROPERTY = "splunk.profiler.enabled";
-  public static final String PROFILER_MEMORY_ENABLED_PROPERTY = "splunk.profiler.memory.enabled";
   public static final String SPLUNK_REALM_PROPERTY = "splunk.realm";
   public static final String SPLUNK_REALM_NONE = "none";
 
@@ -123,10 +121,6 @@ public class SplunkConfiguration implements AutoConfigurationCustomizerProvider 
   public static String getOtlpLogsProtocol(ConfigProperties config) {
     return config.getString(
         "otel.exporter.otlp.logs.protocol", config.getString("otel.exporter.otlp.protocol"));
-  }
-
-  public static boolean isProfilerEnabled(ConfigProperties config) {
-    return config.getBoolean(PROFILER_ENABLED_PROPERTY, false);
   }
 
   private static void addIfAbsent(
