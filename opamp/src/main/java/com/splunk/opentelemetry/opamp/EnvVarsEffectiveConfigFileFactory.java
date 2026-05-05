@@ -38,7 +38,7 @@ class EnvVarsEffectiveConfigFileFactory implements EffectiveConfigFactory {
 
   @Override
   public String buildFileContent() {
-    return addSplunkEnvVars(addOtelEnvVars(new EffectiveConfigBuilder())).build();
+    return addOtelEnvVars(addSplunkEnvVars(new EffectiveConfigBuilder())).build();
   }
 
   private EffectiveConfigBuilder addSplunkEnvVars(EffectiveConfigBuilder builder) {
