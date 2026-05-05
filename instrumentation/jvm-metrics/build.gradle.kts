@@ -7,7 +7,7 @@ dependencies {
   compileOnly(project(":profiler"))
   compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-tooling")
 
-  testImplementation(project(":custom"))
+  testImplementation(testFixtures(project(":custom")))
   testImplementation(project(":profiler"))
   testImplementation("io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api")
 }

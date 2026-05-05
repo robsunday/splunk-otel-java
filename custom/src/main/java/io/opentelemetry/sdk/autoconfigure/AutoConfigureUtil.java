@@ -127,6 +127,6 @@ public final class AutoConfigureUtil {
   }
 
   public static Resource getResource(AutoConfiguredOpenTelemetrySdk sdk) {
-    return SdkAutoconfigureAccess.getResource(sdk);
+    return sdk.getResource();
   }
 }
