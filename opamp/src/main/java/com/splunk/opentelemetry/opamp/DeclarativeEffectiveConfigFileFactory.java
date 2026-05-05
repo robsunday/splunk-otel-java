@@ -31,6 +31,8 @@ import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.PushMe
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.SpanExporterModel;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.SpanProcessorModel;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.TracerProviderModel;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 class DeclarativeEffectiveConfigFileFactory implements EffectiveConfigFactory {
@@ -66,50 +68,53 @@ class DeclarativeEffectiveConfigFileFactory implements EffectiveConfigFactory {
       EffectiveConfigBuilder builder, OpenTelemetryConfigurationModel configurationModel) {
     builder
         .add(
-            OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
-            getTracesEndpoint(configurationModel.getTracerProvider()))
+            OTEL_EXPORTER_OTLP_TRACES_ENDPOINTS,
+            getTracesEndpoints(configurationModel.getTracerProvider()))
         .add(
-            OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
-            getMetricsEndpoint(configurationModel.getMeterProvider()))
+            OTEL_EXPORTER_OTLP_METRICS_ENDPOINTS,
+            getMetricsEndpoints(configurationModel.getMeterProvider()))
         .add(
-            OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
-            getLogsEndpoint(configurationModel.getLoggerProvider()));
+            OTEL_EXPORTER_OTLP_LOGS_ENDPOINTS,
+            getLogsEndpoints(configurationModel.getLoggerProvider()));
   }
 
-  private String getTracesEndpoint(TracerProviderModel tracerProvider) {
+  private List<String> getTracesEndpoints(TracerProviderModel tracerProvider) {
+    List<String> endpoints = new ArrayList<>();
     if (tracerProvider != null) {
       for (SpanProcessorModel spanProcessor : tracerProvider.getProcessors()) {
         String endpoint = getEndpoint(getSpanExporter(spanProcessor));
         if (endpoint != null) {
-          return endpoint;
+          endpoints.add(endpoint);
         }
       }
     }
-    return "";
+    return endpoints;
   }
 
-  private String getMetricsEndpoint(MeterProviderModel meterProvider) {
+  private List<String> getMetricsEndpoints(MeterProviderModel meterProvider) {
+    List<String> endpoints = new ArrayList<>();
     if (meterProvider != null) {
       for (MetricReaderModel metricReader : meterProvider.getReaders()) {
         String endpoint = getEndpoint(getMetricExporter(metricReader));
         if (endpoint != null) {
-          return endpoint;
+          endpoints.add(endpoint);
         }
       }
     }
-    return "";
+    return endpoints;
   }
 
-  private String getLogsEndpoint(LoggerProviderModel loggerProvider) {
+  private List<String> getLogsEndpoints(LoggerProviderModel loggerProvider) {
+    List<String> endpoints = new ArrayList<>();
     if (loggerProvider != null) {
       for (LogRecordProcessorModel processor : loggerProvider.getProcessors()) {
         String endpoint = getEndpoint(getLogRecordExporter(processor));
         if (endpoint != null) {
-          return endpoint;
+          endpoints.add(endpoint);
         }
       }
     }
-    return "";
+    return endpoints;
   }
 
   private static SpanExporterModel getSpanExporter(SpanProcessorModel processor) {
