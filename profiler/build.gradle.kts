@@ -41,8 +41,7 @@ dependencies {
   annotationProcessor("com.google.auto.service:auto-service")
   compileOnly("com.google.auto.service:auto-service")
 
-  testImplementation(project(":custom"))
-  testImplementation(project(":testing:common"))
+  testImplementation(testFixtures(project(":custom")))
   testImplementation("io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api")
   testImplementation("io.opentelemetry.javaagent:opentelemetry-testing-common")
   testImplementation("io.grpc:grpc-netty")

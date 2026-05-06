@@ -18,7 +18,6 @@ package com.splunk.opentelemetry.profiler;
 
 import static java.util.logging.Level.WARNING;
 
-import com.splunk.opentelemetry.SplunkConfiguration;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import java.time.Duration;
 import java.util.logging.Logger;
@@ -32,6 +31,7 @@ public class ProfilerEnvVarsConfiguration implements ProfilerConfiguration {
   static final String CONFIG_KEY_OTEL_OTLP_URL = "otel.exporter.otlp.endpoint";
 
   /* Keys visible for testing */
+  public static final String CONFIG_KEY_PROFILER_ENABLED = "splunk.profiler.enabled";
   public static final String CONFIG_KEY_PROFILER_DIRECTORY = "splunk.profiler.directory";
   public static final String CONFIG_KEY_RECORDING_DURATION = "splunk.profiler.recording.duration";
   public static final String CONFIG_KEY_KEEP_FILES = "splunk.profiler.keep-files";
@@ -68,7 +68,7 @@ public class ProfilerEnvVarsConfiguration implements ProfilerConfiguration {
   public void log() {
     logger.info("-----------------------");
     logger.info("Profiler env vars based configuration:");
-    log(SplunkConfiguration.PROFILER_ENABLED_PROPERTY, isEnabled());
+    log(CONFIG_KEY_PROFILER_ENABLED, isEnabled());
     log(CONFIG_KEY_PROFILER_DIRECTORY, getProfilerDirectory());
     log(CONFIG_KEY_RECORDING_DURATION, getRecordingDuration().toMillis() + "ms");
     log(CONFIG_KEY_KEEP_FILES, getKeepFiles());
@@ -94,7 +94,7 @@ public class ProfilerEnvVarsConfiguration implements ProfilerConfiguration {
 
   @Override
   public boolean isEnabled() {
-    return SplunkConfiguration.isProfilerEnabled(config);
+    return config.getBoolean(CONFIG_KEY_PROFILER_ENABLED, false);
   }
 
   @Override

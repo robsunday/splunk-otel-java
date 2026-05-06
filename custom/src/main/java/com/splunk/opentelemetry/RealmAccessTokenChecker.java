@@ -16,6 +16,8 @@
 
 package com.splunk.opentelemetry;
 
+import static com.splunk.opentelemetry.SplunkConfigurationCustomizer.SPLUNK_REALM_NONE;
+import static com.splunk.opentelemetry.SplunkConfigurationCustomizer.SPLUNK_REALM_PROPERTY;
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getConfig;
 
 import com.google.auto.service.AutoService;
@@ -63,13 +65,11 @@ public class RealmAccessTokenChecker implements BeforeAgentListener {
   }
 
   private static boolean isRealmConfigured(ConfigProperties config) {
-    String realm =
-        config.getString(
-            SplunkConfiguration.SPLUNK_REALM_PROPERTY, SplunkConfiguration.SPLUNK_REALM_NONE);
-    return !realm.equals(SplunkConfiguration.SPLUNK_REALM_NONE);
+    String realm = config.getString(SPLUNK_REALM_PROPERTY, SPLUNK_REALM_NONE);
+    return !realm.equals(SPLUNK_REALM_NONE);
   }
 
   private static boolean isAccessTokenConfigured(ConfigProperties config) {
-    return config.getString(SplunkConfiguration.SPLUNK_ACCESS_TOKEN) != null;
+    return config.getString(SplunkConfigurationCustomizer.SPLUNK_ACCESS_TOKEN) != null;
   }
 }

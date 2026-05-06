@@ -19,15 +19,10 @@ package com.splunk.opentelemetry.testing.declarativeconfig;
 import static io.opentelemetry.api.incubator.config.DeclarativeConfigProperties.empty;
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getDistributionConfig;
 
-import io.opentelemetry.api.incubator.ExtendedOpenTelemetry;
-import io.opentelemetry.api.incubator.config.ConfigProvider;
 import io.opentelemetry.api.incubator.config.DeclarativeConfigProperties;
-import io.opentelemetry.instrumentation.config.bridge.DeclarativeConfigPropertiesBridgeBuilder;
 import io.opentelemetry.instrumentation.testing.internal.AutoCleanupExtension;
 import io.opentelemetry.javaagent.extension.instrumentation.internal.AgentDistributionConfig;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
-import io.opentelemetry.sdk.autoconfigure.SdkAutoconfigureAccess;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.DeclarativeConfiguration;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.DeclarativeConfigurationBuilder;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.DeclarativeConfigurationCustomizerProvider;
@@ -75,21 +70,8 @@ public class DeclarativeConfigTestUtil {
                   () -> Collections.singletonMap("otel.config.file", configFilePath.toString()))
               .build();
 
-      ConfigProvider configProvider =
-          ((ExtendedOpenTelemetry) autoConfiguredSdk.getOpenTelemetrySdk()).getConfigProvider();
-      OpenTelemetrySdk sdk = autoConfiguredSdk.getOpenTelemetrySdk();
-
-      autoCleanup.deferCleanup(sdk);
+      autoCleanup.deferCleanup(autoConfiguredSdk.getOpenTelemetrySdk());
       autoCleanup.deferCleanup(AgentDistributionConfig::resetForTest);
-
-      if (configProvider != null) {
-        return SdkAutoconfigureAccess.create(
-            sdk,
-            SdkAutoconfigureAccess.getResource(autoConfiguredSdk),
-            new DeclarativeConfigPropertiesBridgeBuilder()
-                .buildFromInstrumentationConfig(configProvider.getInstrumentationConfig()));
-      }
-
       return autoConfiguredSdk;
     } finally {
       System.clearProperty("otel.config.file");
