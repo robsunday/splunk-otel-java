@@ -16,7 +16,6 @@
 
 package com.splunk.opentelemetry.opamp;
 
-import static io.opentelemetry.opamp.client.internal.request.service.HttpRequestService.DEFAULT_DELAY_BETWEEN_REQUESTS;
 import static io.opentelemetry.opamp.client.internal.request.service.HttpRequestService.DEFAULT_DELAY_BETWEEN_RETRIES;
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getConfig;
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getResource;
@@ -33,7 +32,6 @@ import io.opentelemetry.opamp.client.internal.response.MessageData;
 import io.opentelemetry.opamp.client.internal.state.State;
 import io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
-import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import io.opentelemetry.sdk.resources.Resource;
 import java.io.IOException;
 import java.time.Duration;
@@ -49,23 +47,15 @@ import org.jetbrains.annotations.Nullable;
 public class OpampActivator implements AgentListener {
   private static final Logger logger = Logger.getLogger(OpampActivator.class.getName());
 
-  private static final String OP_AMP_ENABLED_PROPERTY = "splunk.opamp.enabled";
-  private static final String OP_AMP_ENDPOINT = "splunk.opamp.endpoint";
-  private static final String OP_AMP_POLLING_INTERVAL = "splunk.opamp.polling.interval";
-
   @Override
   public void afterAgent(AutoConfiguredOpenTelemetrySdk autoConfiguredOpenTelemetrySdk) {
-    ConfigProperties config = getConfig(autoConfiguredOpenTelemetrySdk);
-    if (!config.getBoolean(OP_AMP_ENABLED_PROPERTY, false)) {
+    OpampClientConfiguration config =
+        OpampClientConfigurationFactory.createConfiguration(autoConfiguredOpenTelemetrySdk);
+    if (!config.isEnabled()) {
       return;
     }
 
     Resource resource = getResource(autoConfiguredOpenTelemetrySdk);
-    long pollingDuration =
-        config.getLong(
-            OP_AMP_POLLING_INTERVAL, DEFAULT_DELAY_BETWEEN_REQUESTS.getNextDelay().toMillis());
-
-    String endpoint = config.getString(OP_AMP_ENDPOINT);
     EffectiveConfigFactory effectiveConfigFactory =
         createEffectiveConfigFactory(autoConfiguredOpenTelemetrySdk);
     State.EffectiveConfig effectiveConfig = buildEffectiveConfig(effectiveConfigFactory);
@@ -73,9 +63,9 @@ public class OpampActivator implements AgentListener {
     OpampClient client =
         startOpampClient(
             effectiveConfig,
-            endpoint,
+            config.getEndpoint(),
             resource,
-            pollingDuration,
+            config.getPollingInterval(),
             new OpampClient.Callbacks() {
               @Override
               public void onConnect(OpampClient opampClient) {}
