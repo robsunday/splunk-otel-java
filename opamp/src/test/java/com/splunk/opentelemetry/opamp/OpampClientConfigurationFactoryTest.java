@@ -39,7 +39,8 @@ class OpampClientConfigurationFactoryTest {
   }
 
   @Test
-  void createConfiguration_readsEnvVarStyleProperties() {
+  void shouldCreateConfigurationFromEnvVars() {
+    // given
     AutoConfiguredOpenTelemetrySdk sdk =
         createSdk(
             Map.of(
@@ -47,16 +48,19 @@ class OpampClientConfigurationFactoryTest {
                 "splunk.opamp.endpoint", "https://opamp.example.com",
                 "splunk.opamp.polling.interval", "3210"));
 
+    // when
     OpampClientConfiguration configuration =
         OpampClientConfigurationFactory.createConfiguration(sdk);
 
+    // then
     assertThat(configuration.isEnabled()).isTrue();
     assertThat(configuration.getEndpoint()).isEqualTo("https://opamp.example.com");
     assertThat(configuration.getPollingInterval()).isEqualTo(3210);
   }
 
   @Test
-  void createConfiguration_readsDeclarativeConfig(@TempDir Path tempDir) throws IOException {
+  void shouldCreateConfigurationFromDeclarativeConfig(@TempDir Path tempDir) throws IOException {
+    // given
     String yaml =
         """
             file_format: "1.0"
@@ -69,22 +73,27 @@ class OpampClientConfigurationFactoryTest {
     AutoConfiguredOpenTelemetrySdk sdk =
         DeclarativeConfigTestUtil.createAutoConfiguredSdk(yaml, tempDir, autoCleanup);
 
+    // when
     OpampClientConfiguration configuration =
         OpampClientConfigurationFactory.createConfiguration(sdk);
 
+    // then
     assertThat(configuration.isEnabled()).isTrue();
     assertThat(configuration.getEndpoint()).isEqualTo("https://opamp.example.com");
     assertThat(configuration.getPollingInterval()).isEqualTo(4567);
   }
 
   @Test
-  void createConfiguration_usesDefaultPollingIntervalWhenNotConfigured() {
-    AutoConfiguredOpenTelemetrySdk sdk = createSdk(Map.of("splunk.opamp.enabled", "true"));
+  void shouldUseDefaults() {
+    // given
+    AutoConfiguredOpenTelemetrySdk sdk = createSdk(Map.of());
 
+    // when
     OpampClientConfiguration configuration =
         OpampClientConfigurationFactory.createConfiguration(sdk);
 
-    assertThat(configuration.isEnabled()).isTrue();
+    // then
+    assertThat(configuration.isEnabled()).isFalse();
     assertThat(configuration.getEndpoint()).isNull();
     assertThat(configuration.getPollingInterval())
         .isEqualTo(DEFAULT_DELAY_BETWEEN_REQUESTS.getNextDelay().toMillis());
