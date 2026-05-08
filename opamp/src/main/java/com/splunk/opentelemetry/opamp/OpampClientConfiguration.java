@@ -41,12 +41,16 @@ public class OpampClientConfiguration {
 
   @Override
   public String toString() {
-    final StringBuffer sb = new StringBuffer("OpampClientConfiguration{");
-    sb.append("enabled='").append(enabled).append('\'');
-    sb.append(", endpoint='").append(endpoint).append('\'');
-    sb.append(", pollingInterval=").append(pollingInterval);
-    sb.append('}');
-    return sb.toString();
+    return "OpampClientConfiguration{"
+        + "enabled='"
+        + enabled
+        + '\''
+        + ", endpoint='"
+        + endpoint
+        + '\''
+        + ", pollingInterval="
+        + pollingInterval
+        + '}';
   }
 
   public static class Builder {
