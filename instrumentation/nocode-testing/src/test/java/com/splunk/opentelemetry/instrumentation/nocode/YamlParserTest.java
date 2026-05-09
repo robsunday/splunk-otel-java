@@ -23,15 +23,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.splunk.opentelemetry.javaagent.bootstrap.nocode.NocodeRules;
 import com.splunk.opentelemetry.testing.declarativeconfig.DeclarativeConfigTestUtil;
+import io.github.netmikey.logunit.api.LogCapturer;
 import io.opentelemetry.api.incubator.config.DeclarativeConfigProperties;
 import io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil;
 import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.OpenTelemetryConfigurationModel;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class YamlParserTest {
+  @RegisterExtension LogCapturer logs = LogCapturer.create().captureForType(YamlParser.class);
+
   @Test
   void testBasicRuleParsesOK() throws Exception {
     String yaml = "- class: someClass\n" + "  method: someMethod\n";
@@ -129,5 +133,33 @@ class YamlParserTest {
 
     // then
     assertThat(rules).hasSize(2);
+  }
+
+  @Test
+  void shouldParseCurrentSpanRuleAndWarnAboutUnsupportedFields() throws Exception {
+    String yaml =
+        """
+            - class: someClass
+              method: someMethod
+              current_span: true
+              span_name: ignoredName
+              span_kind: CLIENT
+              span_status: ignoredStatus
+              attributes:
+                - key: key
+                  value: this.toString()
+            """;
+
+    List<NocodeRules.Rule> rules = YamlParser.parseFromString(yaml);
+
+    assertThat(rules).hasSize(1);
+    assertThat(rules.get(0).isCurrentSpan()).isTrue();
+    assertThat(rules.get(0).getSpanName()).isNull();
+    assertThat(((RuleImpl) rules.get(0)).getSpanKind()).isNull();
+    assertThat(rules.get(0).getSpanStatus()).isNull();
+
+    logs.assertContains("current_span rules do not support span_name; ignoring it");
+    logs.assertContains("current_span rules do not support span_kind; ignoring it");
+    logs.assertContains("current_span rules do not support span_status; ignoring it");
   }
 }
