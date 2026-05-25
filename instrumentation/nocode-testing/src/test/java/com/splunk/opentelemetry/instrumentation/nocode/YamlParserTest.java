@@ -23,18 +23,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.splunk.opentelemetry.javaagent.bootstrap.nocode.NocodeRules;
 import com.splunk.opentelemetry.testing.declarativeconfig.DeclarativeConfigTestUtil;
+import io.github.netmikey.logunit.api.LogCapturer;
 import io.opentelemetry.api.incubator.config.DeclarativeConfigProperties;
 import io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil;
-import io.opentelemetry.sdk.extension.incubator.fileconfig.internal.model.OpenTelemetryConfigurationModel;
+import io.opentelemetry.sdk.declarativeconfig.internal.model.OpenTelemetryConfigurationModel;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class YamlParserTest {
+  @RegisterExtension LogCapturer logs = LogCapturer.create().captureForType(YamlParser.class);
+
   @Test
   void testBasicRuleParsesOK() throws Exception {
-    String yaml = "- class: someClass\n" + "  method: someMethod\n";
+    String yaml =
+        """
+        - class: someClass
+          method: someMethod
+        """;
     assertEquals(1, YamlParser.parseFromString(yaml).size());
   }
 
@@ -44,60 +52,86 @@ class YamlParserTest {
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "class: fooButNoWrappingYamlList\n"
-            + "  method: thisWillNotWork",
-        "- class:\n"
-            + "    - name: cannotUseMultipleNameClauses\n"
-            + "    - name_regex: withoutAnAndOrOr.*\n"
-            + "  method: someMethodName",
-        "- class:\n"
-            + "    parameter_count: 1\n"
-            + "    method: someMethodName\n",
-        "- class:\n"
-            + "    parameter:\n"
-            + "      index: 0\n"
-            + "      type: int\n"
-            + "  method: someMethodName\n",
-        "- class:\n"
-            + "    and:\n"
-            + "  method: someMethodName\n", // no clauses in and:
-        "- class:\n"
-            + "    or:\n"
-            + "      - not:\n"
-            + "          name: singleRuleExpected\n"
-            + "          name_regex: underANot.*\n"
-            + "  method: someMethodName\n",
-        "- class:\n"
-            + "    or:\n"
-            + "      - not: bareValueOnlySupportedForSimpleClassNames\n"
-            + "  method: someMethodName\n",
-        "- class: someClassName\n"
-            + "  method:\n"
-            + "    super_type: notExpectedForMethodMatcher\n",
-        "- class: someClassName\n"
-            + "  method:\n"
-            + "    parameter_count: notanumber\n",
-          "- class: someClassName\n"
-              + "  method:\n"
-              + "    parameter:\n"
-              + "      index: notanumber\n"
-              + "      type: int\n",
-        "- class: someClassName\n"
-            + "  method:\n"
-            + "    parameter:\n"
-            + "      index: 0\n", // no type
-          "- class: someClassName\n"
-              + "  method:\n"
-              + "    parameter:\n"
-              + "      type: int\n", // no index
-          "- class: someClassName\n"
-              + "  method:\n"
-              + "    parameter: bareValueNotSupported\n",
-          "- class: someClassName\n"
-              + "  method:\n"
-              + "    parameter:\n"
-              + "      noIndex: 1\n"
-              + "      noType: int\n",
+          """
+              class: fooButNoWrappingYamlList
+                method: thisWillNotWork""",
+          """
+              - class:
+                  - name: cannotUseMultipleNameClauses
+                  - name_regex: withoutAnAndOrOr.*
+                method: someMethodName""",
+          """
+              - class:
+                  parameter_count: 1
+                  method: someMethodName
+              """,
+          """
+              - class:
+                  parameter:
+                    index: 0
+                    type: int
+                method: someMethodName
+              """,
+          """
+              - class:
+                  and:
+                method: someMethodName
+              """, // no clauses in and:
+          """
+              - class:
+                  or:
+                    - not:
+                        name: singleRuleExpected
+                        name_regex: underANot.*
+                method: someMethodName
+              """,
+          """
+              - class:
+                  or:
+                    - not: bareValueOnlySupportedForSimpleClassNames
+                method: someMethodName
+              """,
+          """
+              - class: someClassName
+                method:
+                  super_type: notExpectedForMethodMatcher
+              """,
+          """
+              - class: someClassName
+                method:
+                  parameter_count: notanumber
+              """,
+          """
+              - class: someClassName
+                method:
+                  parameter:
+                    index: notanumber
+                    type: int
+              """,
+          """
+              - class: someClassName
+                method:
+                  parameter:
+                    index: 0
+              """, // no type
+          """
+              - class: someClassName
+                method:
+                  parameter:
+                    type: int
+              """, // no index
+          """
+              - class: someClassName
+                method:
+                  parameter: bareValueNotSupported
+              """,
+          """
+              - class: someClassName
+                method:
+                  parameter:
+                    noIndex: 1
+                    noType: int
+              """,
       })
   // spotless:on
   void invalidYamlIsInvalid(String yaml) {
@@ -129,5 +163,34 @@ class YamlParserTest {
 
     // then
     assertThat(rules).hasSize(2);
+  }
+
+  @Test
+  void shouldParseCurrentSpanRuleAndWarnAboutUnsupportedFields() throws Exception {
+    String yaml =
+        """
+            - class: someClass
+              method: someMethod
+              current_span: true
+              span_name: ignoredName
+              span_kind: CLIENT
+              span_status: ignoredStatus
+              attributes:
+                - key: key
+                  value: this.toString()
+            """;
+
+    List<NocodeRules.Rule> rules = YamlParser.parseFromString(yaml);
+
+    assertThat(rules).hasSize(1);
+    NocodeRules.Rule rule = rules.get(0);
+    assertThat(rule.isCurrentSpan()).isTrue();
+    assertThat(rule.getSpanName()).isNull();
+    assertThat(rule.getSpanKind()).isNull();
+    assertThat(rule.getSpanStatus()).isNull();
+
+    logs.assertContains("current_span rules do not support span_name; ignoring it");
+    logs.assertContains("current_span rules do not support span_kind; ignoring it");
+    logs.assertContains("current_span rules do not support span_status; ignoring it");
   }
 }

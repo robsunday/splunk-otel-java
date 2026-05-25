@@ -8,6 +8,7 @@ dependencies {
   compileOnly("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
   compileOnly("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi")
   compileOnly("io.opentelemetry:opentelemetry-sdk-extension-incubator")
+  compileOnly("io.opentelemetry:opentelemetry-sdk-extension-declarative-config")
   compileOnly("io.opentelemetry.semconv:opentelemetry-semconv")
   compileOnly("io.opentelemetry.semconv:opentelemetry-semconv-incubating")
   compileOnly("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api")
@@ -28,6 +29,7 @@ dependencies {
   testImplementation("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
   testImplementation("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi")
   testImplementation("io.opentelemetry:opentelemetry-sdk-extension-incubator")
+  testImplementation("io.opentelemetry:opentelemetry-sdk-extension-declarative-config")
   testImplementation("io.opentelemetry.semconv:opentelemetry-semconv")
   testImplementation("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api")
   testImplementation("io.opentelemetry.instrumentation:opentelemetry-resources")
@@ -53,11 +55,12 @@ tasks {
 
   // TODO: investigate why adding to processResources throws UnsupportedOperationException, but only in GHA
   register("generateVersionResource") {
+    val version = project.version as String
     val propertiesDir = file("build/generated/properties")
     outputs.dir(propertiesDir)
 
     doLast {
-      File(propertiesDir, "splunk.properties").writeText("telemetry.distro.version=${project.version}")
+      File(propertiesDir, "splunk.properties").writeText("telemetry.distro.version=$version")
     }
   }
 }

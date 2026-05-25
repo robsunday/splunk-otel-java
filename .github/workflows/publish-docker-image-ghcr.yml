@@ -35,14 +35,14 @@ jobs:
         run: echo MAJOR_VERSION=${GITHUB_REF_NAME} | sed -e 's/\..*//' >> $GITHUB_ENV
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: build and publish container
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           push: true
           file: Dockerfile-ghcr
@@ -55,7 +55,7 @@ jobs:
             ghcr.io/signalfx/splunk-otel-java/splunk-otel-java:${{ env.RELEASE_VERSION }}
 
       - name: build and publish CSA container
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           push: true
           file: Dockerfile-ghcr
