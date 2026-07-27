@@ -35,10 +35,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,7 +55,6 @@ class ProfilingSupervisorTest {
 
   ProfilerConfiguration config;
   OptionalConfigurableSupplier<ProfilerConfiguration> configSupplier;
-  ExecutorService executor;
   ProfilingSupervisor supervisor;
 
   @BeforeEach
@@ -78,13 +73,6 @@ class ProfilingSupervisorTest {
             recordingFlusherFactory.create(
                 any(ProfilerConfiguration.class), any(Resource.class), any(JFR.class)))
         .thenReturn(recordingFlusher);
-  }
-
-  @AfterEach
-  void tearDown() {
-    if (executor != null) {
-      executor.shutdownNow();
-    }
   }
 
   @Test
@@ -330,17 +318,14 @@ class ProfilingSupervisorTest {
   }
 
   private void startSupervisor(AutoConfiguredOpenTelemetrySdk sdk) {
-    executor = Executors.newSingleThreadExecutor();
     supervisor =
         new ProfilingSupervisor(
             configSupplier,
             jfr,
             sdk,
-            new LinkedBlockingQueue<>(),
             recordingFlusherFactory,
             allocatedMemoryMetrics,
             gcMemoryMetrics);
-    supervisor.start(executor);
   }
 
   private void startSupervisor() {

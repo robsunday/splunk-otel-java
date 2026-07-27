@@ -17,42 +17,89 @@
 package com.splunk.opentelemetry.opamp;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.logging.Level.WARNING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.splunk.opamp.remotecontrol.CommandDispatcher;
 import com.splunk.opentelemetry.opamp.effectiveconfig.EffectiveConfigReporter;
 import com.splunk.opentelemetry.profiler.ProfilingSupervisor;
 import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingSupervisor;
+import com.splunk.opentelemetry.profiler.util.HelpfulExecutors;
 import io.opentelemetry.opamp.client.OpampClient;
 import io.opentelemetry.opamp.client.internal.response.MessageData;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.logging.Logger;
 import opamp.proto.AgentConfigFile;
 import opamp.proto.AgentRemoteConfig;
 
 public class ServerToAgentMessageHandler {
   public static final String MAGIC_CMD_STRING = "COMMAND_HACKS";
+
+  private static final Logger logger =
+      Logger.getLogger(ServerToAgentMessageHandler.class.getName());
+  private static final int MAX_MESSAGE_QUEUE_SIZE = 5;
+  private final BlockingQueue<ServerMessage> serverMessageQueue;
   private final RemoteConfigProcessor remoteConfigProcessor;
   private final CommandDispatcher commandDispatcher;
 
-  public ServerToAgentMessageHandler(
+  public static ServerToAgentMessageHandler createAndStart(
       ProfilingSupervisor profilingSupervisor,
       SnapshotProfilingSupervisor snapshotProfilingSupervisor,
       EffectiveConfigReporter effectiveConfigReporter,
       CommandDispatcher commandDispatcher) {
-    this(
-        new RemoteConfigProcessor(
-            profilingSupervisor, snapshotProfilingSupervisor, effectiveConfigReporter),
-        commandDispatcher);
+    ExecutorService executor = HelpfulExecutors.newSingleThreadExecutor("Server Message Handler");
+    ServerToAgentMessageHandler messageHandler =
+        new ServerToAgentMessageHandler(
+            new LinkedBlockingDeque<>(MAX_MESSAGE_QUEUE_SIZE),
+            new RemoteConfigProcessor(
+                profilingSupervisor, snapshotProfilingSupervisor, effectiveConfigReporter),
+            commandDispatcher);
+
+    messageHandler.start(executor);
+
+    return messageHandler;
   }
 
   @VisibleForTesting
   ServerToAgentMessageHandler(
-      RemoteConfigProcessor remoteConfigProcessor, CommandDispatcher commandDispatcher) {
+      BlockingQueue<ServerMessage> serverMessageQueue,
+      RemoteConfigProcessor remoteConfigProcessor,
+      CommandDispatcher commandDispatcher) {
+    this.serverMessageQueue = serverMessageQueue;
     this.remoteConfigProcessor = remoteConfigProcessor;
     this.commandDispatcher = commandDispatcher;
   }
 
+  @VisibleForTesting
+  void start(ExecutorService executor) {
+    executor.submit(this::messageProcessingLoop);
+  }
+
+  private void messageProcessingLoop() {
+    while (true) {
+      try {
+        ServerMessage serverMessage = serverMessageQueue.take();
+        processMessage(serverMessage);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        logger.fine("ServerToAgentMessageHandler is shutting down");
+        return;
+      } catch (Exception e) {
+        logger.log(WARNING, "ServerToAgentMessageHandler encountered an unexpected exception", e);
+      }
+    }
+  }
+
   public void handleMessage(MessageData message, OpampClient opampClient) {
-    AgentRemoteConfig remoteConfig = message.getRemoteConfig();
+    if (!serverMessageQueue.offer(new ServerMessage(message, opampClient))) {
+      logger.severe("Message queue is full. Could not enqueue message " + message);
+    }
+  }
+
+  private void processMessage(ServerMessage serverMessage) {
+    AgentRemoteConfig remoteConfig = serverMessage.messageData.getRemoteConfig();
     if (remoteConfig != null) {
 
       if (remoteConfig.config.config_map.containsKey(MAGIC_CMD_STRING)) {
@@ -65,7 +112,17 @@ public class ServerToAgentMessageHandler {
         }
       }
 
-      remoteConfigProcessor.applyConfig(remoteConfig, opampClient);
+      remoteConfigProcessor.applyConfig(remoteConfig, serverMessage.opampClient);
+    }
+  }
+
+  private static class ServerMessage {
+    private final MessageData messageData;
+    private final OpampClient opampClient;
+
+    ServerMessage(MessageData messageData, OpampClient opampClient) {
+      this.messageData = messageData;
+      this.opampClient = opampClient;
     }
   }
 }

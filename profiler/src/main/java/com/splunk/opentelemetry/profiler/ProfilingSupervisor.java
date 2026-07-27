@@ -17,20 +17,15 @@
 package com.splunk.opentelemetry.profiler;
 
 import static io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil.getResource;
-import static java.util.logging.Level.WARNING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.splunk.opentelemetry.instrumentation.jvmmetrics.otel.OtelAllocatedMemoryMetrics;
 import com.splunk.opentelemetry.instrumentation.jvmmetrics.otel.OtelGcMemoryMetrics;
-import com.splunk.opentelemetry.profiler.util.HelpfulExecutors;
 import com.splunk.opentelemetry.profiler.util.OptionalConfigurableSupplier;
 import io.opentelemetry.context.ContextStorage;
 import io.opentelemetry.sdk.autoconfigure.AutoConfigureUtil;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -49,7 +44,6 @@ public class ProfilingSupervisor {
   private final OptionalConfigurableSupplier<ProfilerConfiguration> configSupplier;
   private final JFR jfr;
   private final AutoConfiguredOpenTelemetrySdk sdk;
-  private final BlockingQueue<ProfilingCommand> commandQueue;
   private final PeriodicRecordingFlusherFactory recordingFlusherFactory;
   private final OtelAllocatedMemoryMetrics allocatedMemoryMetrics;
   private final OtelGcMemoryMetrics gcMemoryMetrics;
@@ -64,14 +58,12 @@ public class ProfilingSupervisor {
       OptionalConfigurableSupplier<ProfilerConfiguration> configSupplier,
       JFR jfr,
       AutoConfiguredOpenTelemetrySdk sdk,
-      BlockingQueue<ProfilingCommand> commandQueue,
       PeriodicRecordingFlusherFactory recordingFlusherFactory,
       OtelAllocatedMemoryMetrics allocatedMemoryMetrics,
       OtelGcMemoryMetrics gcMemoryMetrics) {
     this.configSupplier = configSupplier;
     this.jfr = jfr;
     this.sdk = sdk;
-    this.commandQueue = commandQueue;
     this.recordingFlusherFactory = recordingFlusherFactory;
     this.allocatedMemoryMetrics = allocatedMemoryMetrics;
     this.gcMemoryMetrics = gcMemoryMetrics;
@@ -81,82 +73,21 @@ public class ProfilingSupervisor {
     if (SUPPLIER.isConfigured()) {
       throw new IllegalStateException("Already started");
     }
-    ExecutorService executor = HelpfulExecutors.newSingleThreadExecutor("JFR Profiler");
-    BlockingQueue<ProfilingCommand> queue = new LinkedBlockingQueue<>();
     ProfilingSupervisor supervisor =
         new ProfilingSupervisor(
             ProfilerConfiguration.SUPPLIER,
             JFR.getInstance(),
             sdk,
-            queue,
             new PeriodicRecordingFlusherFactory(),
             new OtelAllocatedMemoryMetrics(),
             new OtelGcMemoryMetrics());
     SUPPLIER.configure(supervisor);
-    supervisor.start(executor);
     supervisor.updateJvmMemoryMetrics();
 
     return supervisor;
   }
 
-  @VisibleForTesting
-  void start(ExecutorService executor) {
-    executor.submit(this::commandLoop);
-  }
-
-  private void commandLoop() {
-    while (true) {
-      try {
-        ProfilingCommand command = commandQueue.take();
-        handleCommand(command);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        logger.fine("ProfilingSupervisor is shutting down");
-        return;
-      } catch (Exception e) {
-        logger.log(WARNING, "ProfilingSupervisor encountered an unexpected exception", e);
-      }
-    }
-  }
-
-  public void requestStartProfiling() {
-    commandQueue.add(ProfilingCommand.START);
-  }
-
-  public void requestStopProfiling() {
-    commandQueue.add(ProfilingCommand.STOP);
-  }
-
-  public void requestReinitializeProfiling() {
-    commandQueue.add(ProfilingCommand.REINITIALIZE);
-  }
-
-  private void handleCommand(ProfilingCommand command) {
-    switch (command) {
-      case START:
-        tryStart();
-        break;
-      case STOP:
-        tryStop();
-        break;
-      case REINITIALIZE:
-        tryReinitialize();
-        break;
-    }
-  }
-
-  private void setJfrContextStorageEnabled(boolean enabled) {
-    JfrContextStorage contextStorage = jfrContextStorage.get();
-    if (contextStorage != null) {
-      contextStorage.setEnabled(enabled);
-    }
-  }
-
-  /**
-   * Try and start the profiler. This does not check configuration, just responds to a command
-   * request.
-   */
-  private void tryStart() {
+  public synchronized void requestStartProfiling() {
     if (isJfrRecordingActive()) {
       logger.fine("JFR is already running, not starting again.");
       return;
@@ -175,7 +106,7 @@ public class ProfilingSupervisor {
     logger.info("Profiler is active.");
   }
 
-  private void tryStop() {
+  public synchronized void requestStopProfiling() {
     if (!isJfrRecordingActive()) {
       logger.fine("JFR is not running already, not stopping again.");
       return;
@@ -185,12 +116,19 @@ public class ProfilingSupervisor {
     logger.info("Profiler is deactivated.");
   }
 
-  private void tryReinitialize() {
+  public synchronized void requestReinitializeProfiling() {
     updateJvmMemoryMetrics();
-    tryStop();
+    requestStopProfiling();
     // Start the profiler with current settings if it is enabled. New settings will be applied.
     if (configSupplier.get().isEnabled()) {
-      tryStart();
+      requestStartProfiling();
+    }
+  }
+
+  private void setJfrContextStorageEnabled(boolean enabled) {
+    JfrContextStorage contextStorage = jfrContextStorage.get();
+    if (contextStorage != null) {
+      contextStorage.setEnabled(enabled);
     }
   }
 
@@ -240,11 +178,5 @@ public class ProfilingSupervisor {
           jfrContextStorage.set(storage);
           return storage;
         });
-  }
-
-  enum ProfilingCommand {
-    START,
-    STOP,
-    REINITIALIZE
   }
 }

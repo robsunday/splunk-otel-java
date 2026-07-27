@@ -74,7 +74,7 @@ public class OpampActivator implements AgentListener {
     CommandDispatcher commandDispatcher =
         buildCommandDispatcher(autoConfiguredOpenTelemetrySdk, opampClientConfiguration);
     ServerToAgentMessageHandler serverToAgentMessageHandler =
-        new ServerToAgentMessageHandler(
+        ServerToAgentMessageHandler.createAndStart(
             ProfilingSupervisor.SUPPLIER.get(),
             SnapshotProfilingSupervisor.SUPPLIER.get(),
             effectiveConfigReporter,
