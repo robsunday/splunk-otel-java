@@ -31,7 +31,7 @@ dependencies {
   api(enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.22.1"))
   api(enforcedPlatform("com.google.protobuf:protobuf-bom:$protobufVersion"))
   api(enforcedPlatform("com.squareup.okhttp3:okhttp-bom:5.4.0"))
-  api(enforcedPlatform("io.grpc:grpc-bom:1.83.0"))
+  api(enforcedPlatform("io.grpc:grpc-bom:1.83.1"))
   api(enforcedPlatform("io.opentelemetry:opentelemetry-bom-alpha:$otelAlphaVersion"))
   api(enforcedPlatform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:$otelInstrumentationAlphaVersion"))
   api(enforcedPlatform("org.junit:junit-bom:6.1.2"))
@@ -56,7 +56,7 @@ dependencies {
     api("io.opentelemetry.contrib:opentelemetry-samplers:$otelContribAlphaVersion")
     api("io.opentelemetry.contrib:opentelemetry-resource-providers:$otelContribAlphaVersion")
     api("io.opentelemetry.contrib:opentelemetry-opamp-client:${otelContribAlphaVersion}")
-    api("io.opentelemetry.proto:opentelemetry-proto:1.10.0-alpha")
+    api("io.opentelemetry.proto:opentelemetry-proto:1.11.0-alpha")
 
     api("org.apache.commons:commons-jexl3:3.7.0")
     api("org.snakeyaml:snakeyaml-engine:2.10")

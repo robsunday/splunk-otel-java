@@ -19,11 +19,7 @@ package com.splunk.opentelemetry.opamp;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.WARNING;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.splunk.opamp.remotecontrol.CommandDispatcher;
-import com.splunk.opentelemetry.opamp.effectiveconfig.EffectiveConfigReporter;
-import com.splunk.opentelemetry.profiler.ProfilingSupervisor;
-import com.splunk.opentelemetry.profiler.snapshot.SnapshotProfilingSupervisor;
 import com.splunk.opentelemetry.profiler.util.HelpfulExecutors;
 import io.opentelemetry.opamp.client.OpampClient;
 import io.opentelemetry.opamp.client.internal.response.MessageData;
@@ -45,16 +41,12 @@ public class ServerToAgentMessageHandler {
   private final CommandDispatcher commandDispatcher;
 
   public static ServerToAgentMessageHandler createAndStart(
-      ProfilingSupervisor profilingSupervisor,
-      SnapshotProfilingSupervisor snapshotProfilingSupervisor,
-      EffectiveConfigReporter effectiveConfigReporter,
-      CommandDispatcher commandDispatcher) {
+      RemoteConfigProcessor remoteConfigProcessor, CommandDispatcher commandDispatcher) {
     ExecutorService executor = HelpfulExecutors.newSingleThreadExecutor("Server Message Handler");
     ServerToAgentMessageHandler messageHandler =
         new ServerToAgentMessageHandler(
             new LinkedBlockingDeque<>(MAX_MESSAGE_QUEUE_SIZE),
-            new RemoteConfigProcessor(
-                profilingSupervisor, snapshotProfilingSupervisor, effectiveConfigReporter),
+            remoteConfigProcessor,
             commandDispatcher);
 
     messageHandler.start(executor);

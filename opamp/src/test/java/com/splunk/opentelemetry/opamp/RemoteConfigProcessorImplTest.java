@@ -45,12 +45,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class RemoteConfigProcessorTest {
+class RemoteConfigProcessorImplTest {
   @Mock ProfilingSupervisor profilingSupervisor;
   @Mock SnapshotProfilingSupervisor snapshotProfilingSupervisor;
   @Mock EffectiveConfigReporter effectiveConfigReporter;
   @Mock OpampClient opampClient;
-  private RemoteConfigProcessor handler;
+  private RemoteConfigProcessorImpl handler;
 
   @BeforeEach
   void setUp() {
@@ -58,7 +58,7 @@ class RemoteConfigProcessorTest {
     SnapshotProfilingConfiguration.SUPPLIER.configure(
         SnapshotProfilingConfiguration.builder().build());
     handler =
-        new RemoteConfigProcessor(
+        new RemoteConfigProcessorImpl(
             profilingSupervisor, snapshotProfilingSupervisor, effectiveConfigReporter);
   }
 
