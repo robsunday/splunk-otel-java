@@ -125,7 +125,7 @@ public class OpampActivator implements AgentListener {
         buildRemoteConfigProcessor(effectiveConfigReporter, opampClientConfiguration);
     CommandDispatcher commandDispatcher =
         buildCommandDispatcher(autoConfiguredOpenTelemetrySdk, opampClientConfiguration);
-    return new ServerToAgentMessageHandler(remoteConfigProcessor, commandDispatcher);
+    return ServerToAgentMessageHandler.createAndStart(remoteConfigProcessor, commandDispatcher);
   }
 
   @NotNull
